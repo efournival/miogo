@@ -1,12 +1,12 @@
 # miogo
 
 ## TODO
-1. Find the most suitable database back-end (NoSQL)
-2. Decide what to keep and what to throw directly in the garbage (instance, groups, teams, ...)
-3. Syncing, front-end interface, compatibility with the old API?
+1. Decide what to keep and what to throw directly in the garbage (instance, groups, teams, ...)
+2. Syncing, front-end interface, compatibility with the old API?
+3. Security: AES?
 
 ## Roadmap
-* DB
+* MongoDB
 * Login
 * Upload
 * Browsing (list files, files info, ...)
