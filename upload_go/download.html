@@ -1,0 +1,14 @@
+<html>
+<head>
+    <title>Download file</title>
+</head>
+<body>
+    {{range .}}
+        <p>
+            <a href="/download/{{.Filename}}">
+            {{.Filename}}
+            </a>
+        </p>
+    {{end}}
+</body>
+</html>
