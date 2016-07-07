@@ -10,7 +10,7 @@ import (
 	//	"log"
 	"crypto/md5"
 	"net/http"
-	//  "os"
+	"os"
 	//	"mime"
 )
 
@@ -25,29 +25,49 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		t, _ := template.ParseFiles("upload.html")
 		t.Execute(w, token)
 	} else {
-		// on stocke les fichiers de -64mo en ram
-		// connexion à la bdd
 		session, err := mgo.Dial("localhost")
 		if err != nil {
 			panic(err)
 		}
 		defer session.Close()
-		// test gridFS
-		r.ParseMultipartForm(16 << 20)
+		//r.ParseMultipartForm(32 << 20)
+
+		reader, err := r.MultipartReader()
+
+		// workaround pour /tmp
+		if os.Getenv("TMPDIR") == "" {
+			os.Setenv("TMPDIR", "/var/tmp")
+		}
+
 		gridfs := session.DB("miogo").GridFS("fs")
-		file, handler, err := r.FormFile("uploadfile")
-		if err != nil {
-			panic(err)
+
+		for {
+			part, err := reader.NextPart()
+			if err == io.EOF {
+				break
+			}
+			started := time.Now()
+			gridfsFile, err := gridfs.Create(part.FileName())
+			defer gridfsFile.Close()
+			io.Copy(gridfsFile, part)
+			fmt.Printf("%s secondes\n", time.Since(started))
 		}
-		gridfsFile, err := gridfs.Create(handler.Filename)
-		started := time.Now()
-		if err != nil {
-			panic(err)
-		}
-		defer gridfsFile.Close()
-		defer file.Close()
-		io.Copy(gridfsFile, file)
-		fmt.Printf("%s secondes\n", time.Since(started))
+		/*
+			gridfs := session.DB("miogo").GridFS("fs")
+			file, handler, err := r.FormFile("uploadfile")
+			if err != nil {
+				panic(err)
+			}
+			gridfsFile, err := gridfs.Create(handler.Filename)
+			started := time.Now()
+			if err != nil {
+				panic(err)
+			}
+			defer gridfsFile.Close()
+			defer file.Close()
+			io.Copy(gridfsFile, file)
+			fmt.Printf("%s secondes\n", time.Since(started))
+		*/
 	}
 }
 
