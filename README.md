@@ -7,10 +7,10 @@
 ## Roadmap
 * Throw everything in the trash, except main entities (instances, groups, users)
 * MongoDB
-* Login
 * Upload
 * Browsing (list files, files info, ...)
-* Operations (remove file, rename, copy, paste, lock, ...)
 * Entities (users, groups, instance ...)
+* Login
 * Access rights
+* Operations (remove file, rename, copy, paste, lock, ...)
 * Server infrastructure (Makefile, packages, ...)
