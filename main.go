@@ -7,11 +7,11 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"os"
-	"html/template"
 	"strings"
 )
 
@@ -159,10 +159,16 @@ func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 	for id, name := range files {
 		m.NewFile(path, name, id)
 	}
+
+	http.Redirect(w, r, "/view/", 301)
 }
 
 func main() {
 	miogo := NewMiogo()
+
+	if count, err := miogo.db.C("folders").Find(nil).Count(); count < 1 && err == nil {
+		miogo.db.C("folders").Insert(bson.M{"path": "/"})
+	}
 
 	miogo.router.GET("/view/*path", miogo.View)
 	miogo.router.POST("/upload", miogo.Upload)
