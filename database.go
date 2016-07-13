@@ -144,3 +144,15 @@ func (mdb *MiogoDB) GetFile(destination io.Writer, id bson.ObjectId) error {
 func (mdb *MiogoDB) invalidateFolder(path string) {
 	delete(mdb.foldersCache, path)
 }
+
+func (mdb *MiogoDB) NewUser(mail string, password string) error {
+	return mdb.db.C("users").Insert(bson.M{"mail": mail, "password": password})
+}
+
+func (mdb *MiogoDB) NewGroup(name string) error {
+	return mdb.db.C("groups").Insert(bson.M{"_id": name})
+}
+
+func (mdb *MiogoDB) AddUserToGroup(user string, group string) error {
+
+}
