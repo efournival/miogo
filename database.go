@@ -154,5 +154,8 @@ func (mdb *MiogoDB) NewGroup(name string) error {
 }
 
 func (mdb *MiogoDB) AddUserToGroup(user string, group string) error {
-
+    // get id with mail from db
+    userId bson.ObjectId
+    mdb.db.C("users").Find({"mail" : user}).Select(bson.M{"_id" :1).One(&userId)
+    // insert nested attribute group with a set
 }

@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// curl --data "mail=bobo@utc.fr&password=zigoto" http://localhost:8080/NewUser 
+// curl --data "mail=bobo@utc.fr&password=zigoto" http://localhost:8080/NewUser
 func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	r.ParseForm()
 	mail := strings.TrimSpace(r.Form["mail"][0])
@@ -16,7 +16,7 @@ func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	hashedPassword, _ := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
 	err := m.db.NewUser(mail, string(hashedPassword))
 	w.Header().Set("Content-Type", "application/json")
-	if err != nil{
+	if err != nil {
 		fmt.Fprint(w, `{"error" : "Can't create user"}`)
 		return
 	}
@@ -25,28 +25,28 @@ func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 
 // curl --data "name=miogo" http://localhost:8080/NewGroup
 func (m *Miogo) NewGroup(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-    r.ParseForm()
-    name := strings.TrimSpace(r.Form["name"][0])
-    err := m.db.NewGroup(name)
-    w.Header().Set("Content-Type", "application/json")
-    if err != nil {
-        fmt.Fprint(w, `{"error" : "Can't create group"}`)
-        return
-    }
-    fmt.Fprint(w, `{"success" : "true"}`)
+	r.ParseForm()
+	name := strings.TrimSpace(r.Form["name"][0])
+	err := m.db.NewGroup(name)
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		fmt.Fprint(w, `{"error" : "Can't create group"}`)
+		return
+	}
+	fmt.Fprint(w, `{"success" : "true"}`)
 }
 
 // curl --data "user=bobo@utc.fr&group=miogo" http://localhost:8080/AddUserToGroup
 func (m *Miogo) AddUserToGroup(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-    r.ParseForm()
-    userMail := strings.TrimSpace(r.Form["user"][0])
-    group := strings.TrimSpace(r.Form["group"][0])
-    err := m.db.AddUserToGroup(userMail, group)
-    if err != nil {
-        fmt.Fprint(w, `{"error" : "Can't add user to group"}`)
-        return
-    }
-    fmt.Fprint(w, `{"success" : "true"}`)
+	r.ParseForm()
+	userMail := strings.TrimSpace(r.Form["user"][0])
+	group := strings.TrimSpace(r.Form["group"][0])
+	err := m.db.AddUserToGroup(userMail, group)
+	if err != nil {
+		fmt.Fprint(w, `{"error" : "Can't add user to group"}`)
+		return
+	}
+	fmt.Fprint(w, `{"success" : "true"}`)
 }
 
 //func (m *Miogo) GetFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
