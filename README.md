@@ -12,11 +12,6 @@
 ## WebServices roadmap
 * Login => success or not
 * Logout => success
-* AddUserToGroup (user, group) => success or not
-* RemoveUserFromgroup (user, group) => success or not
-* CreateGroup (group, admin) => success or not
-* RemoveGroup (group) => success or not
-* SetGroupAdmin (group, admin) => success or not
 * SetResourceAccess(path[], access) => success or not
 * MoveResource (path[], destPath, copy) => success or not
 * DeleteResource (path[]) => success or not
@@ -37,4 +32,25 @@ curl --data "path=/test" http://localhost:8080/GetFolder
 ```
 ```
 curl --data "path=/test/file" http://localhost:8080/GetFile >file
+```
+```
+curl --data "mail=test@miogo.fr&password=zigoto" http://localhost:8080/NewUser
+```
+```
+curl --data "mail=test@miogo.fr" http://localhost:8080/RemoveUser
+```
+```
+curl --data "group=miogo" http://localhost:8080/NewGroup
+```
+```
+curl --data "group=miogo" http://localhost:8080/RemoveGroup
+```
+```
+curl --data "user=test@miogo.fr&group=miogo" http://localhost:8080/AddUserToGroup
+```
+```
+curl --data "user=test@miogo.fr&group=miogo" http://localhost:8080/RemoveUserFromGroup
+```
+```
+curl --data "user=test@miogo.fr&group=miogo" http://localhost:8080/SetGroupAdmin
 ```

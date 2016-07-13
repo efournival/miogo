@@ -31,9 +31,9 @@ type Folder struct {
 }
 
 type User struct {
-	mail     string  `bson:"mail" json:"mail"`
-	password string  `bson:"password" json:"password"`
-	groups   []Group `json:"groups,omitempty"`
+	Mail     string  `bson:"mail" json:"mail"`
+	Password string  `bson:"password" json:"password"`
+	Groups   []Group `json:"groups,omitempty"`
 }
 
 type Group struct {
@@ -59,7 +59,12 @@ func NewMiogo() *Miogo {
 	miogo.router.POST("/NewFolder", miogo.NewFolder)
 	miogo.router.POST("/Upload", miogo.Upload)
 	miogo.router.POST("/NewUser", miogo.NewUser)
+	miogo.router.POST("/RemoveUser", miogo.RemoveUser)
 	miogo.router.POST("/NewGroup", miogo.NewGroup)
+	miogo.router.POST("/RemoveGroup", miogo.RemoveGroup)
+	miogo.router.POST("/AddUserToGroup", miogo.AddUserToGroup)
+	miogo.router.POST("/RemoveUserFromGroup", miogo.RemoveUserFromGroup)
+	miogo.router.POST("/SetGroupAdmin", miogo.SetGroupAdmin)
 
 	return &miogo
 }
