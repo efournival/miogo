@@ -1,0 +1,43 @@
+user {
+    _id : ... ,
+    mail : "buk@buk.buk",
+    groups : ["miogo", "fauteuil", "support"]
+}
+
+folder { 
+    _id : ...,
+    files : [
+        ...
+    ],
+    rights : [
+        all : [r, w],
+        groups : [
+        {name : "miogo", rights : [r, w]},
+        {name : "fauteuil", rights : [r]},
+        ],
+        users : [
+        {name : "fourni@fournix.fr", rights : [r, w]},
+        {name : "buk@buk.buk", rights : [r]}
+        ]
+    ]
+}
+
+file { 
+    _id : ...,
+    name : "naufrage.png"
+    rights : [
+        all : [r, w],
+        groups : [
+        {name : "fauteuil", rights : [r]},
+        ],
+        users : [
+        {name : "fourni@fournix.fr", rights : [r, w]},
+        ]
+    ]
+}
+
+group {
+    _id : ...,
+    name : "miogo",
+    idAdmin : ...
+}

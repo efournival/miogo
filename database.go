@@ -144,3 +144,37 @@ func (mdb *MiogoDB) GetFile(destination io.Writer, id bson.ObjectId) error {
 func (mdb *MiogoDB) invalidateFolder(path string) {
 	delete(mdb.foldersCache, path)
 }
+
+func (mdb *MiogoDB) NewUser(mail string, password string) error {
+	return mdb.db.C("users").Insert(bson.M{"mail": mail, "password": password})
+}
+
+func (mdb *MiogoDB) RemoveUser(mail string) error {
+	return mdb.db.C("users").Remove(bson.M{"mail": mail})
+}
+
+func (mdb *MiogoDB) NewGroup(name string) error {
+	return mdb.db.C("groups").Insert(bson.M{"_id": name})
+}
+
+func (mdb *MiogoDB) RemoveGroup(name string) error {
+	_, err := mdb.db.C("users").UpdateAll(bson.M{"groups": name}, bson.M{"$pull": bson.M{"groups": name}})
+	if err == nil {
+		err = mdb.db.C("groups").RemoveId(name)
+	}
+	return err
+}
+
+func (mdb *MiogoDB) AddUserToGroup(user string, group string) error {
+	//TODO : check if group and user exists
+	return mdb.db.C("users").Update(bson.M{"mail": user}, bson.M{"$addToSet": bson.M{"groups": group}})
+}
+
+func (mdb *MiogoDB) RemoveUserFromGroup(user string, group string) error {
+	//TODO : check if group and user exists
+	return mdb.db.C("users").Update(bson.M{"mail": user}, bson.M{"$pull": bson.M{"groups": group}})
+}
+
+func (mdb *MiogoDB) SetGroupAdmin(user string, group string) error {
+	return mdb.db.C("groups").Update(bson.M{"_id": group}, bson.M{"$addToSet": bson.M{"admins": user}})
+}
