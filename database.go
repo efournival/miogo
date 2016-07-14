@@ -19,7 +19,7 @@ type MiogoDB struct {
 func NewMiogoDB(host string, cacheTime int) *MiogoDB {
 	session, err := mgo.Dial(host)
 	if err != nil {
-		log.Fatalf("Cannot connect to MongoDB: %s", err)
+		log.Panicf("Cannot connect to MongoDB: %s\n", err)
 	}
 
 	selector := bson.M{"path": "/"}
@@ -68,8 +68,13 @@ func (mdb *MiogoDB) GetFolderWithFile(path string) (Folder, bool) {
 
 	pos := strings.LastIndex(path, "/")
 	name := path[pos+1:]
+	folderPath := path[:pos]
 
-	query := mdb.db.C("folders").Find(bson.M{"path": path[:pos+1], "files.name": name}).Select(bson.M{"files": bson.M{"$elemMatch": bson.M{"name": name}}})
+	if len(folderPath) == 0 {
+		folderPath = "/"
+	}
+
+	query := mdb.db.C("folders").Find(bson.M{"path": folderPath, "files.name": name}).Select(bson.M{"files": bson.M{"$elemMatch": bson.M{"name": name}}})
 
 	if count, err := query.Count(); count > 0 && err == nil {
 		var folder Folder
@@ -104,14 +109,14 @@ func (mdb *MiogoDB) CreateFile(part *multipart.Part) (bson.ObjectId, string, err
 	defer file.Close()
 
 	if err != nil {
-		log.Println("Cannot create a GridFS file: %s", err)
+		log.Printf("Cannot create a GridFS file: %s\n", err)
 		return bson.NewObjectId(), "", err
 	}
 
 	_, err = io.Copy(file, part)
 
 	if err != nil {
-		log.Println("Cannot copy to GridFS: %s", err)
+		log.Printf("Cannot copy to GridFS: %s\n", err)
 	}
 
 	return file.Id().(bson.ObjectId), part.FileName(), err
@@ -122,14 +127,14 @@ func (mdb *MiogoDB) GetFile(destination io.Writer, id bson.ObjectId) error {
 	defer file.Close()
 
 	if err != nil {
-		log.Println("Cannot get file from GridFS (%s): %s", id.String(), err)
+		log.Printf("Cannot get file from GridFS (%s): %s\n", id.String(), err)
 		return err
 	}
 
 	_, err = io.Copy(destination, file)
 
 	if err != nil {
-		log.Println("Cannot copy from GridFS: %s", err)
+		log.Printf("Cannot copy from GridFS: %s\n", err)
 	}
 
 	return err
