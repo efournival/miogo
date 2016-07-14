@@ -10,17 +10,10 @@ import (
 	"time"
 )
 
-type CacheEntry struct {
-	// TODO: limit caching with time (first, in the configuration file; then implement a more efficient system)
-	Expire time.Time
-	Value  interface{}
-}
-
 type MiogoDB struct {
 	db           *mgo.Database
-	delay        time.Duration
-	filesCache   map[string]CacheEntry
-	foldersCache map[string]CacheEntry
+	filesCache   *Cache
+	foldersCache *Cache
 }
 
 func NewMiogoDB(host string, cacheTime int) *MiogoDB {
@@ -36,17 +29,18 @@ func NewMiogoDB(host string, cacheTime int) *MiogoDB {
 		session.DB("miogo").C("folders").Insert(selector)
 	}
 
+	dur := time.Duration(cacheTime) * time.Minute
+
 	return &MiogoDB{
 		session.DB("miogo"),
-		time.Duration(cacheTime) * time.Minute,
-		make(map[string]CacheEntry),
-		make(map[string]CacheEntry),
+		NewCache(dur),
+		NewCache(dur),
 	}
 }
 
 func (mdb *MiogoDB) GetFolder(path string) (Folder, bool) {
-	if val, ok := mdb.foldersCache[path]; ok {
-		return val.Value.(Folder), true
+	if val, ok := mdb.foldersCache.Get(path); ok {
+		return val.(Folder), true
 	}
 
 	query := mdb.db.C("folders").Find(bson.M{"path": path})
@@ -59,7 +53,7 @@ func (mdb *MiogoDB) GetFolder(path string) (Folder, bool) {
 		mdb.db.C("folders").Find(bson.M{"path": bson.RegEx{"^" + strings.TrimRight(path, "/") + "/*[^/]+$", ""}}).Select(bson.M{"path": 1}).All(&subfolders)
 		folder.Folders = append(folder.Folders, subfolders...)
 
-		mdb.foldersCache[path] = CacheEntry{time.Now().Add(mdb.delay), folder}
+		mdb.foldersCache.Set(path, folder)
 
 		return folder, true
 	}
@@ -68,8 +62,8 @@ func (mdb *MiogoDB) GetFolder(path string) (Folder, bool) {
 }
 
 func (mdb *MiogoDB) GetFolderWithFile(path string) (Folder, bool) {
-	if val, ok := mdb.filesCache[path]; ok {
-		return val.Value.(Folder), true
+	if val, ok := mdb.filesCache.Get(path); ok {
+		return val.(Folder), true
 	}
 
 	pos := strings.LastIndex(path, "/")
@@ -80,7 +74,7 @@ func (mdb *MiogoDB) GetFolderWithFile(path string) (Folder, bool) {
 	if count, err := query.Count(); count > 0 && err == nil {
 		var folder Folder
 		query.One(&folder)
-		mdb.filesCache[path] = CacheEntry{time.Now().Add(mdb.delay), folder}
+		mdb.filesCache.Set(path, folder)
 		return folder, true
 	}
 
@@ -89,7 +83,7 @@ func (mdb *MiogoDB) GetFolderWithFile(path string) (Folder, bool) {
 
 // TODO: bulk files push
 func (mdb *MiogoDB) PushFile(path, filename string, id bson.ObjectId) bool {
-	mdb.invalidateFolder(path)
+	mdb.foldersCache.Invalidate(path)
 	return mdb.db.C("folders").Update(bson.M{"path": path}, bson.M{"$push": bson.M{"files": bson.M{"name": filename, "file_id": id}}}) == nil
 }
 
@@ -100,7 +94,7 @@ func (mdb *MiogoDB) NewFolder(path string) bool {
 		parent = "/"
 	}
 
-	mdb.invalidateFolder(parent)
+	mdb.foldersCache.Invalidate(parent)
 
 	return mdb.db.C("folders").Insert(bson.M{"path": path}) == nil
 }
@@ -139,10 +133,6 @@ func (mdb *MiogoDB) GetFile(destination io.Writer, id bson.ObjectId) error {
 	}
 
 	return err
-}
-
-func (mdb *MiogoDB) invalidateFolder(path string) {
-	delete(mdb.foldersCache, path)
 }
 
 func (mdb *MiogoDB) NewUser(mail string, password string) error {
