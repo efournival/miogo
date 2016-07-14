@@ -166,15 +166,37 @@ func (mdb *MiogoDB) RemoveGroup(name string) error {
 }
 
 func (mdb *MiogoDB) AddUserToGroup(user string, group string) error {
-	//TODO : check if group and user exists
+	//TODO : check if group and user exists beforehand?
 	return mdb.db.C("users").Update(bson.M{"mail": user}, bson.M{"$addToSet": bson.M{"groups": group}})
 }
 
 func (mdb *MiogoDB) RemoveUserFromGroup(user string, group string) error {
-	//TODO : check if group and user exists
+	//TODO : check if group and user exists beforehand?
 	return mdb.db.C("users").Update(bson.M{"mail": user}, bson.M{"$pull": bson.M{"groups": group}})
 }
 
 func (mdb *MiogoDB) SetGroupAdmin(user string, group string) error {
 	return mdb.db.C("groups").Update(bson.M{"_id": group}, bson.M{"$addToSet": bson.M{"admins": user}})
+}
+
+func (mdb *MiogoDB) SetResourceRights(entityType string, rights string, resource string, name string) error {
+	if name == "" {
+		name = "all"
+	}
+	if count, err := mdb.db.C("folders").Find(bson.M{"path": resource}).Count(); count == 0 && err == nil {
+		pos := strings.LastIndex(resource, "/")
+		filename := resource[pos+1:]
+		path := resource[:pos]
+		if name == "all" {
+			return mdb.db.C("folders").Update(bson.M{"path": path, "files.name": filename}, bson.M{"$addToSet": bson.M{"files.0.rights": bson.M{"all": "rw"}}})
+		} else {
+			return mdb.db.C("folders").Update(bson.M{"path": path, "files.name": filename}, bson.M{"$addToSet": bson.M{"files.0.rights." + entityType: bson.M{"name": name, "rights": rights}}})
+		}
+	} else {
+		if name == "all" {
+			return mdb.db.C("folders").Update(bson.M{"path": resource}, bson.M{"$addToSet": bson.M{"rights": bson.M{"all": "rw"}}})
+		} else {
+			return mdb.db.C("folders").Update(bson.M{"path": resource}, bson.M{"$addToSet": bson.M{"rights." + entityType: bson.M{"name": name, "rights": rights}}})
+		}
+	}
 }

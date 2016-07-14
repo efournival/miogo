@@ -9,7 +9,7 @@ folder {
     files : [
         ...
     ],
-    rights : [
+    rights : {
         all : [r, w],
         groups : [
         {name : "miogo", rights : [r, w]},
@@ -19,13 +19,13 @@ folder {
         {name : "fourni@fournix.fr", rights : [r, w]},
         {name : "buk@buk.buk", rights : [r]}
         ]
-    ]
+    }
 }
 
 file { 
     _id : ...,
     name : "naufrage.png"
-    rights : [
+    rights : {
         all : [r, w],
         groups : [
         {name : "fauteuil", rights : [r]},
@@ -33,7 +33,7 @@ file {
         users : [
         {name : "fourni@fournix.fr", rights : [r, w]},
         ]
-    ]
+    }
 }
 
 group {
@@ -41,3 +41,50 @@ group {
     name : "miogo",
     idAdmin : ...
 }
+
+
+
+        if name == "all" {
+            return mdb.db.C("folders").Update(
+                bson.M{"path": resource, "files.name": filename},
+                bson.M{"$addToSet":
+                    bson.M{"files.0.rights":
+                        bson.M{"all": rights}
+                    }
+                }
+            )
+        } else {
+            return mdb.db.C("folders").Update(
+                bson.M{"path": path, "files.name": filename},
+                bson.M{"$push":
+                    bson.M{"files.0.rights":
+                        bson.M{entityType :
+                            bson.M{name: rights}
+                        }
+                    }
+                }
+            )
+        }
+    } else {
+        if name == "all" {
+            return mdb.db.C("folders").Update(
+                bson.M{"path": resource},
+                bson.M{"$addToSet":
+                    bson.M{"rights":
+                        bson.M{"all": rights}
+                    }
+                }
+            )
+        } else {
+            return mdb.db.C("folders").Update(
+                bson.M{"path": resource},
+                bson.M{"$addToSet":
+                    bson.M{"rights":
+                        bson.M{entityType:
+                            bson.M{name: rights}
+                        }
+                    }
+                }
+            )
+        }
+    }

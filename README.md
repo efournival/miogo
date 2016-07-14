@@ -54,3 +54,18 @@ curl --data "user=test@miogo.fr&group=miogo" http://localhost:8080/RemoveUserFro
 ```
 curl --data "user=test@miogo.fr&group=miogo" http://localhost:8080/SetGroupAdmin
 ```
+```
+curl --data "resource=/test/test&type=group&name=miogo&rights=r" http://localhost:8080/SetResourceRights
+```
+```
+curl --data "resource=/test/test&type=all&rights=rw" http://localhost:8080/SetResourceRights
+```
+```
+curl --data "resource=/&type=group&name=miogo&rights=rw" http://localhost:8080/SetResourceRights
+```
+```
+curl --data "resource=/&type=all&rights=w" http://localhost:8080/SetResourceRights
+```
+```
+curl --data "resource=/test/test&type=user&name=test@miogo.fr&rights=rw" http://localhost:8080/SetResourceRights
+```
