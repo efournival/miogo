@@ -34,7 +34,6 @@ func (m *Miogo) RemoveUser(w http.ResponseWriter, r *http.Request, _ httprouter.
 	fmt.Fprint(w, `{ "success": "true" }`)
 }
 
-
 func (m *Miogo) NewGroup(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	r.ParseForm()
 	group := strings.TrimSpace(r.Form["group"][0])

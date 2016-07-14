@@ -65,6 +65,7 @@ func NewMiogo() *Miogo {
 	miogo.router.POST("/AddUserToGroup", miogo.AddUserToGroup)
 	miogo.router.POST("/RemoveUserFromGroup", miogo.RemoveUserFromGroup)
 	miogo.router.POST("/SetGroupAdmin", miogo.SetGroupAdmin)
+	miogo.router.POST("/SetResourceRights", miogo.SetResourceRights)
 
 	return &miogo
 }

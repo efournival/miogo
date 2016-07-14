@@ -115,3 +115,22 @@ func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 
 	fmt.Fprint(w, `{ "success": "true" }`)
 }
+
+func (m *Miogo) SetResourceRights(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	r.ParseForm()
+	resource := strings.TrimSpace(r.Form["resource"][0])
+	entityType := strings.TrimSpace(r.Form["type"][0])
+	rights := strings.TrimSpace(r.Form["rights"][0])
+	var err error
+	if entityType == "user" || entityType == "group" {
+		name := strings.TrimSpace(r.Form["name"][0])
+		err = m.db.SetResourceRights(entityType, rights, resource, name)
+	} else {
+		err = m.db.SetResourceRights(entityType, rights, resource, "")
+	}
+	if err != nil {
+		fmt.Fprint(w, `{"error" : "Can't set rights"}`)
+		return
+	}
+	fmt.Fprint(w, `{"success" : "true"}`)
+}
