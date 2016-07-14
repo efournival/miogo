@@ -116,6 +116,7 @@ func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 	fmt.Fprint(w, `{ "success": "true" }`)
 }
 
+<<<<<<< Updated upstream
 func (m *Miogo) SetResourceRights(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	r.ParseForm()
 	resource := strings.TrimSpace(r.Form["resource"][0])
