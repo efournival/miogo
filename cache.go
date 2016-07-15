@@ -5,8 +5,9 @@ import (
 	"time"
 )
 
+// TODO: kick old entries
+
 type CacheEntry struct {
-	// TODO: limit caching with time (first, in the configuration file; then implement a more efficient system)
 	expiration time.Time
 	val        interface{}
 }

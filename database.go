@@ -11,12 +11,14 @@ import (
 )
 
 type MiogoDB struct {
-	db           *mgo.Database
-	filesCache   *Cache
-	foldersCache *Cache
+	db              *mgo.Database
+	sessionDuration time.Duration
+	filesCache      *Cache
+	foldersCache    *Cache
+	usersCache      *Cache
 }
 
-func NewMiogoDB(host string, cacheTime int) *MiogoDB {
+func NewMiogoDB(host string, cacheTime int, sessionDuration int) *MiogoDB {
 	session, err := mgo.Dial(host)
 	if err != nil {
 		log.Panicf("Cannot connect to MongoDB: %s\n", err)
@@ -33,9 +35,60 @@ func NewMiogoDB(host string, cacheTime int) *MiogoDB {
 
 	return &MiogoDB{
 		session.DB("miogo"),
+		time.Duration(sessionDuration) * time.Minute,
+		NewCache(dur),
 		NewCache(dur),
 		NewCache(dur),
 	}
+}
+
+func (mdb *MiogoDB) updateUserSession(usr User) User {
+	usr.Session.Expiration = time.Now().Add(mdb.sessionDuration).Unix()
+	mdb.db.C("users").Update(bson.M{"session.hash": usr.Session.Hash}, bson.M{"session.expiration": usr.Session.Expiration})
+	mdb.usersCache.Set(usr.Session.Hash, usr)
+
+	return usr
+}
+
+func (mdb *MiogoDB) GetUser(email string) (User, bool) {
+	query := mdb.db.C("users").Find(bson.M{"email": email})
+
+	if count, err := query.Count(); count > 0 && err == nil {
+		var user User
+		query.One(&user)
+		return user, true
+	}
+
+	return User{}, false
+}
+
+func (mdb *MiogoDB) GetUserFromSession(session string) (User, bool) {
+	if val, ok := mdb.usersCache.Get(session); ok {
+		if val.(User).Session.Expiration > time.Now().Unix() {
+			return mdb.updateUserSession(val.(User)), true
+		}
+
+		return User{}, false
+	}
+
+	query := mdb.db.C("users").Find(bson.M{"session.hash": session})
+
+	if count, err := query.Count(); count > 0 && err == nil {
+		var user User
+		query.One(&user)
+
+		if user.Session.Expiration > time.Now().Unix() {
+			return User{}, false
+		}
+
+		return mdb.updateUserSession(user), true
+	}
+
+	return User{}, false
+}
+
+func (mdb *MiogoDB) SetUserSession(email, hash string) {
+	mdb.db.C("users").Update(bson.M{"email": email}, bson.M{"$set": bson.M{"session": bson.M{"hash": hash, "expiration": bson.Now().Add(mdb.sessionDuration).Unix()}}})
 }
 
 func (mdb *MiogoDB) GetFolder(path string) (Folder, bool) {
@@ -141,11 +194,11 @@ func (mdb *MiogoDB) GetFile(destination io.Writer, id bson.ObjectId) error {
 }
 
 func (mdb *MiogoDB) NewUser(mail string, password string) error {
-	return mdb.db.C("users").Insert(bson.M{"mail": mail, "password": password})
+	return mdb.db.C("users").Insert(bson.M{"email": mail, "password": password})
 }
 
 func (mdb *MiogoDB) RemoveUser(mail string) error {
-	return mdb.db.C("users").Remove(bson.M{"mail": mail})
+	return mdb.db.C("users").Remove(bson.M{"email": mail})
 }
 
 func (mdb *MiogoDB) NewGroup(name string) error {
@@ -162,12 +215,12 @@ func (mdb *MiogoDB) RemoveGroup(name string) error {
 
 func (mdb *MiogoDB) AddUserToGroup(user string, group string) error {
 	//TODO : check if group and user exists beforehand?
-	return mdb.db.C("users").Update(bson.M{"mail": user}, bson.M{"$addToSet": bson.M{"groups": group}})
+	return mdb.db.C("users").Update(bson.M{"email": user}, bson.M{"$addToSet": bson.M{"groups": group}})
 }
 
 func (mdb *MiogoDB) RemoveUserFromGroup(user string, group string) error {
 	//TODO : check if group and user exists beforehand?
-	return mdb.db.C("users").Update(bson.M{"mail": user}, bson.M{"$pull": bson.M{"groups": group}})
+	return mdb.db.C("users").Update(bson.M{"email": user}, bson.M{"$pull": bson.M{"groups": group}})
 }
 
 func (mdb *MiogoDB) SetGroupAdmin(user string, group string) error {

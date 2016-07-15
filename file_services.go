@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/julienschmidt/httprouter"
 	"gopkg.in/mgo.v2/bson"
 	"io"
 	"net/http"
 	"strings"
 )
 
-func (m *Miogo) GetFile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (m *Miogo) GetFile(w http.ResponseWriter, r *http.Request, u *User) {
 	r.ParseForm()
 	path := strings.TrimSpace(r.Form["path"][0])
 
@@ -30,7 +29,7 @@ func (m *Miogo) GetFile(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	fmt.Fprint(w, `{ "error": "File not found" }`)
 }
 
-func (m *Miogo) GetFolder(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (m *Miogo) GetFolder(w http.ResponseWriter, r *http.Request, u *User) {
 	r.ParseForm()
 	path := strings.TrimRight(strings.TrimSpace(r.Form["path"][0]), "/")
 	w.Header().Set("Content-Type", "application/json")
@@ -48,7 +47,7 @@ func (m *Miogo) GetFolder(w http.ResponseWriter, r *http.Request, _ httprouter.P
 	fmt.Fprint(w, `{ "error": "Folder does not exist" }`)
 }
 
-func (m *Miogo) NewFolder(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (m *Miogo) NewFolder(w http.ResponseWriter, r *http.Request, u *User) {
 	r.ParseForm()
 	path := strings.TrimRight(strings.TrimSpace(r.Form["path"][0]), "/")
 
@@ -66,7 +65,7 @@ func (m *Miogo) NewFolder(w http.ResponseWriter, r *http.Request, _ httprouter.P
 	fmt.Fprint(w, `{ "error": "Bad folder name" }`)
 }
 
-func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, u *User) {
 	reader, err := r.MultipartReader()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -116,7 +115,7 @@ func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 	fmt.Fprint(w, `{ "success": "true" }`)
 }
 
-func (m *Miogo) SetResourceRights(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (m *Miogo) SetResourceRights(w http.ResponseWriter, r *http.Request, u *User) {
 	r.ParseForm()
 	resource := strings.TrimSpace(r.Form["resource"][0])
 	entityType := strings.TrimSpace(r.Form["type"][0])

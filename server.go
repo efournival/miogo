@@ -2,21 +2,24 @@ package main
 
 import (
 	"github.com/BurntSushi/toml"
-	"github.com/julienschmidt/httprouter"
 	"gopkg.in/mgo.v2/bson"
 	"log"
+	"net/http"
 	"os"
+	"reflect"
 )
 
 type MiogoConfig struct {
 	MongoDBHost     string
 	TemporaryFolder string
+	SessionDuration int
+	CacheDuration   int
 }
 
 type Miogo struct {
-	db     *MiogoDB
-	conf   *MiogoConfig
-	router *httprouter.Router
+	db   *MiogoDB
+	conf *MiogoConfig
+	mux  *http.ServeMux
 }
 
 type File struct {
@@ -30,42 +33,72 @@ type Folder struct {
 	Folders []Folder `json:"folders,omitempty"`
 }
 
-type User struct {
-	Mail     string  `bson:"mail" json:"mail"`
-	Password string  `bson:"password" json:"password"`
-	Groups   []Group `json:"groups,omitempty"`
-}
-
 type Group struct {
 	Id     string `json:"id" bson:"_id,omitempty"`
 	Admins []User `json:"admins,omitempty"`
 }
 
+type ServiceFunc func(http.ResponseWriter, *http.Request, *User)
+
 func NewMiogo() *Miogo {
 	var conf MiogoConfig
 
-	if _, err := toml.DecodeFile("miogo.conf", &conf); err != nil {
+	md, err := toml.DecodeFile("miogo.conf", &conf)
+
+	if err != nil {
 		log.Fatalf("Error while loading configuration: %s", err)
+	}
+
+	s := reflect.ValueOf(&conf).Elem().Type()
+	good := true
+
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i).Name
+		if !md.IsDefined(f) {
+			log.Printf("Lacking configuration field: %s\n", f)
+			good = false
+		}
+	}
+
+	if !good {
+		log.Fatalf("Please provide the required data in the configuration file")
 	}
 
 	os.Setenv("TMPDIR", conf.TemporaryFolder)
 
-	router := httprouter.New()
+	miogo := Miogo{NewMiogoDB(conf.MongoDBHost, conf.CacheDuration, conf.SessionDuration), &conf, http.NewServeMux()}
 
-	miogo := Miogo{NewMiogoDB(conf.MongoDBHost, 0), &conf, router}
+	miogo.service("GetFile", miogo.GetFile)
+	miogo.service("GetFolder", miogo.GetFolder)
+	miogo.service("NewFolder", miogo.NewFolder)
+	miogo.service("Upload", miogo.Upload)
 
-	miogo.router.POST("/GetFile", miogo.GetFile)
-	miogo.router.POST("/GetFolder", miogo.GetFolder)
-	miogo.router.POST("/NewFolder", miogo.NewFolder)
-	miogo.router.POST("/Upload", miogo.Upload)
-	miogo.router.POST("/NewUser", miogo.NewUser)
-	miogo.router.POST("/RemoveUser", miogo.RemoveUser)
-	miogo.router.POST("/NewGroup", miogo.NewGroup)
-	miogo.router.POST("/RemoveGroup", miogo.RemoveGroup)
-	miogo.router.POST("/AddUserToGroup", miogo.AddUserToGroup)
-	miogo.router.POST("/RemoveUserFromGroup", miogo.RemoveUserFromGroup)
-	miogo.router.POST("/SetGroupAdmin", miogo.SetGroupAdmin)
-	miogo.router.POST("/SetResourceRights", miogo.SetResourceRights)
+	miogo.service("Login", miogo.Login)
+	// TODO: Logout
+	miogo.service("NewUser", miogo.NewUser)
+	miogo.service("RemoveUser", miogo.RemoveUser)
+
+	miogo.service("NewGroup", miogo.NewGroup)
+	miogo.service("RemoveGroup", miogo.RemoveGroup)
+	miogo.service("AddUserToGroup", miogo.AddUserToGroup)
+	miogo.service("RemoveUserFromGroup", miogo.RemoveUserFromGroup)
+	miogo.service("SetGroupAdmin", miogo.SetGroupAdmin)
+	miogo.service("SetResourceRights", miogo.SetResourceRights)
 
 	return &miogo
 }
+
+func (m *Miogo) service(name string, sfunc ServiceFunc) {
+	m.mux.HandleFunc("/" + name, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			if usr, ok := m.getSessionUser(r); ok || name == "Login" {
+				sfunc(w, r, usr)
+			} else {
+				http.Error(w, "Not logged in", http.StatusForbidden)
+			}
+		} else {
+			http.Error(w, "Please send POST requests", http.StatusBadRequest)
+		}
+	})
+}
+

@@ -2,15 +2,31 @@ package main
 
 import (
 	"fmt"
-	"github.com/julienschmidt/httprouter"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strings"
 )
 
-func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (m *Miogo) Login(w http.ResponseWriter, r *http.Request, u *User) {
 	r.ParseForm()
-	mail := strings.TrimSpace(r.Form["mail"][0])
+
+	email := strings.TrimSpace(r.Form["email"][0])
+	password := strings.TrimSpace(r.Form["password"][0])
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if m.loginOK(email, password) {
+		m.newUserSession(email, w)
+		fmt.Fprint(w, `{ "success": "true" }`)
+		return
+	}
+
+	fmt.Fprint(w, `{ "success": "false" }`)
+}
+
+func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, u *User) {
+	r.ParseForm()
+	mail := strings.TrimSpace(r.Form["email"][0])
 	password := []byte(strings.TrimSpace(r.Form["password"][0]))
 	hashedPassword, _ := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
 	err := m.db.NewUser(mail, string(hashedPassword))
@@ -22,9 +38,9 @@ func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	fmt.Fprint(w, `{ "success": "true" }`)
 }
 
-func (m *Miogo) RemoveUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (m *Miogo) RemoveUser(w http.ResponseWriter, r *http.Request, u *User) {
 	r.ParseForm()
-	mail := strings.TrimSpace(r.Form["mail"][0])
+	mail := strings.TrimSpace(r.Form["email"][0])
 	err := m.db.RemoveUser(mail)
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
@@ -34,7 +50,7 @@ func (m *Miogo) RemoveUser(w http.ResponseWriter, r *http.Request, _ httprouter.
 	fmt.Fprint(w, `{ "success": "true" }`)
 }
 
-func (m *Miogo) NewGroup(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (m *Miogo) NewGroup(w http.ResponseWriter, r *http.Request, u *User) {
 	r.ParseForm()
 	group := strings.TrimSpace(r.Form["group"][0])
 	err := m.db.NewGroup(group)
@@ -46,7 +62,7 @@ func (m *Miogo) NewGroup(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 	fmt.Fprint(w, `{"success" : "true"}`)
 }
 
-func (m *Miogo) RemoveGroup(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (m *Miogo) RemoveGroup(w http.ResponseWriter, r *http.Request, u *User) {
 	r.ParseForm()
 	group := strings.TrimSpace(r.Form["group"][0])
 	err := m.db.RemoveGroup(group)
@@ -58,7 +74,7 @@ func (m *Miogo) RemoveGroup(w http.ResponseWriter, r *http.Request, _ httprouter
 	fmt.Fprint(w, `{"success" : "true"}`)
 }
 
-func (m *Miogo) AddUserToGroup(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (m *Miogo) AddUserToGroup(w http.ResponseWriter, r *http.Request, u *User) {
 	r.ParseForm()
 	userMail := strings.TrimSpace(r.Form["user"][0])
 	group := strings.TrimSpace(r.Form["group"][0])
@@ -70,7 +86,7 @@ func (m *Miogo) AddUserToGroup(w http.ResponseWriter, r *http.Request, _ httprou
 	fmt.Fprint(w, `{"success" : "true"}`)
 }
 
-func (m *Miogo) RemoveUserFromGroup(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (m *Miogo) RemoveUserFromGroup(w http.ResponseWriter, r *http.Request, u *User) {
 	r.ParseForm()
 	userMail := strings.TrimSpace(r.Form["user"][0])
 	group := strings.TrimSpace(r.Form["group"][0])
@@ -82,7 +98,7 @@ func (m *Miogo) RemoveUserFromGroup(w http.ResponseWriter, r *http.Request, _ ht
 	fmt.Fprint(w, `{"success" : "true"}`)
 }
 
-func (m *Miogo) SetGroupAdmin(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (m *Miogo) SetGroupAdmin(w http.ResponseWriter, r *http.Request, u *User) {
 	r.ParseForm()
 	admin := strings.TrimSpace(r.Form["user"][0])
 	group := strings.TrimSpace(r.Form["group"][0])
