@@ -1,2 +1,11 @@
+# The machine hosting the Mongo database server
 MongoDBHost = "localhost"
+
+# Where Miogo should store uploaded file (NB: /tmp is often mounted as tmpfs, i.e. ramdisk)
 TemporaryFolder = "/var/tmp"
+
+# Delay before disconnecting an inactive user
+SessionDuration = 30
+
+# Delay before cleaning old cache entry
+CacheDuration = 30
