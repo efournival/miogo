@@ -1,24 +1,24 @@
 package main
 
 import (
-	"time"
 	"sync"
+	"time"
 )
 
 type CacheEntry struct {
 	// TODO: limit caching with time (first, in the configuration file; then implement a more efficient system)
-	expire time.Time
-	val  interface{}
+	expiration time.Time
+	val        interface{}
 }
 
 type Cache struct {
-	mtx sync.Mutex
-	delay time.Duration
+	mtx     sync.Mutex
+	delay   time.Duration
 	entries map[string]CacheEntry
 }
 
 func NewCache(delay time.Duration) *Cache {
-	return &Cache{ sync.Mutex{}, delay, make(map[string]CacheEntry) }
+	return &Cache{sync.Mutex{}, delay, make(map[string]CacheEntry)}
 }
 
 func (c *Cache) Get(key string) (interface{}, bool) {
