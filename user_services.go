@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strings"
@@ -17,11 +16,11 @@ func (m *Miogo) Login(w http.ResponseWriter, r *http.Request, u *User) {
 
 	if m.loginOK(email, password) {
 		m.newUserSession(email, w)
-		fmt.Fprint(w, `{ "success": "true" }`)
+		w.Write([]byte(`{ "success": "true" }`))
 		return
 	}
 
-	fmt.Fprint(w, `{ "success": "false" }`)
+	w.Write([]byte(`{ "success": "false" }`))
 }
 
 func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, u *User) {
@@ -32,10 +31,10 @@ func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, u *User) {
 	err := m.db.NewUser(mail, string(hashedPassword))
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
-		fmt.Fprint(w, `{"error" : "Can't create user"}`)
+		w.Write([]byte(`{ "error" : "Cannot create user" }`))
 		return
 	}
-	fmt.Fprint(w, `{ "success": "true" }`)
+	w.Write([]byte(`{ "success": "true" }`))
 }
 
 func (m *Miogo) RemoveUser(w http.ResponseWriter, r *http.Request, u *User) {
@@ -44,10 +43,10 @@ func (m *Miogo) RemoveUser(w http.ResponseWriter, r *http.Request, u *User) {
 	err := m.db.RemoveUser(mail)
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
-		fmt.Fprint(w, `{"error" : "Can't remove user"}`)
+		w.Write([]byte(`{ "error": "Can't remove user" }`))
 		return
 	}
-	fmt.Fprint(w, `{ "success": "true" }`)
+	w.Write([]byte(`{ "success": "true" }`))
 }
 
 func (m *Miogo) NewGroup(w http.ResponseWriter, r *http.Request, u *User) {
@@ -56,10 +55,10 @@ func (m *Miogo) NewGroup(w http.ResponseWriter, r *http.Request, u *User) {
 	err := m.db.NewGroup(group)
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
-		fmt.Fprint(w, `{"error" : "Can't create group"}`)
+		w.Write([]byte(`{ "error": "Cannot create group" }`))
 		return
 	}
-	fmt.Fprint(w, `{"success" : "true"}`)
+	w.Write([]byte(`{ "success": "true" }`))
 }
 
 func (m *Miogo) RemoveGroup(w http.ResponseWriter, r *http.Request, u *User) {
@@ -68,10 +67,10 @@ func (m *Miogo) RemoveGroup(w http.ResponseWriter, r *http.Request, u *User) {
 	err := m.db.RemoveGroup(group)
 	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
-		fmt.Fprint(w, `{"error" : "Can't remove group"}`)
+		w.Write([]byte(`{ "error": "Cannot remove group" }`))
 		return
 	}
-	fmt.Fprint(w, `{"success" : "true"}`)
+	w.Write([]byte(`{ "success": "true" }`))
 }
 
 func (m *Miogo) AddUserToGroup(w http.ResponseWriter, r *http.Request, u *User) {
@@ -80,10 +79,10 @@ func (m *Miogo) AddUserToGroup(w http.ResponseWriter, r *http.Request, u *User) 
 	group := strings.TrimSpace(r.Form["group"][0])
 	err := m.db.AddUserToGroup(userMail, group)
 	if err != nil {
-		fmt.Fprint(w, `{"error" : "Can't add user to group"}`)
+		w.Write([]byte(`{ "error": "Cannot add user to group" }`))
 		return
 	}
-	fmt.Fprint(w, `{"success" : "true"}`)
+	w.Write([]byte(`{ "success": "true" }`))
 }
 
 func (m *Miogo) RemoveUserFromGroup(w http.ResponseWriter, r *http.Request, u *User) {
@@ -92,10 +91,10 @@ func (m *Miogo) RemoveUserFromGroup(w http.ResponseWriter, r *http.Request, u *U
 	group := strings.TrimSpace(r.Form["group"][0])
 	err := m.db.RemoveUserFromGroup(userMail, group)
 	if err != nil {
-		fmt.Fprint(w, `{"error" : "Can't remove user from group"}`)
+		w.Write([]byte(`{ "error": "Cannot remove user from group" }`))
 		return
 	}
-	fmt.Fprint(w, `{"success" : "true"}`)
+	w.Write([]byte(`{ "success": "true" }`))
 }
 
 func (m *Miogo) SetGroupAdmin(w http.ResponseWriter, r *http.Request, u *User) {
@@ -104,8 +103,8 @@ func (m *Miogo) SetGroupAdmin(w http.ResponseWriter, r *http.Request, u *User) {
 	group := strings.TrimSpace(r.Form["group"][0])
 	err := m.db.SetGroupAdmin(admin, group)
 	if err != nil {
-		fmt.Fprint(w, `{"error" : "Can't set admin for group"}`)
+		w.Write([]byte(`{ "error": "Can't set admin for group" }`))
 		return
 	}
-	fmt.Fprint(w, `{"success" : "true"}`)
+	w.Write([]byte(`{ "success": "true" }`))
 }

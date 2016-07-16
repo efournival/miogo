@@ -89,7 +89,7 @@ func NewMiogo() *Miogo {
 }
 
 func (m *Miogo) service(name string, sfunc ServiceFunc) {
-	m.mux.HandleFunc("/" + name, func(w http.ResponseWriter, r *http.Request) {
+	m.mux.HandleFunc("/"+name, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			if usr, ok := m.getSessionUser(r); ok || name == "Login" {
 				sfunc(w, r, usr)
@@ -101,4 +101,3 @@ func (m *Miogo) service(name string, sfunc ServiceFunc) {
 		}
 	})
 }
-

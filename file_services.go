@@ -19,14 +19,14 @@ func (m *Miogo) GetFile(w http.ResponseWriter, r *http.Request, u *User) {
 
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{ "error": "Server error" }`)
+			w.Write([]byte(`{ "error": "Server error" }`))
 		}
 
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprint(w, `{ "error": "File not found" }`)
+	w.Write([]byte(`{ "error": "File not found" }`))
 }
 
 func (m *Miogo) GetFolder(w http.ResponseWriter, r *http.Request, u *User) {
@@ -44,7 +44,7 @@ func (m *Miogo) GetFolder(w http.ResponseWriter, r *http.Request, u *User) {
 		return
 	}
 
-	fmt.Fprint(w, `{ "error": "Folder does not exist" }`)
+	w.Write([]byte(`{ "error": "Folder does not exist" }`))
 }
 
 func (m *Miogo) NewFolder(w http.ResponseWriter, r *http.Request, u *User) {
@@ -62,16 +62,16 @@ func (m *Miogo) NewFolder(w http.ResponseWriter, r *http.Request, u *User) {
 		}
 	}
 
-	fmt.Fprint(w, `{ "error": "Bad folder name" }`)
+	w.Write([]byte(`{ "error": "Bad folder name" }`))
 }
 
 func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, u *User) {
-	reader, err := r.MultipartReader()
-
 	w.Header().Set("Content-Type", "application/json")
 
+	reader, err := r.MultipartReader()
+
 	if err != nil {
-		fmt.Fprint(w, `{ "error": "Bad request" }`)
+		w.Write([]byte(`{ "error": "Bad request" }`))
 		return
 	}
 
@@ -93,7 +93,7 @@ func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, u *User) {
 			id, name, err := m.db.CreateFile(part)
 
 			if err != nil {
-				fmt.Fprint(w, `{ "error": "Failure on our side" }`)
+				w.Write([]byte(`{ "error": "Failure on our side" }`))
 				// TODO: remove from GridFS
 				return
 			}
@@ -108,11 +108,11 @@ func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, u *User) {
 		}
 	} else {
 		// TODO: remove from GridFS
-		fmt.Fprint(w, `{ "error": "Wrong path" }`)
+		w.Write([]byte(`{ "error": "Wrong path" }`))
 		return
 	}
 
-	fmt.Fprint(w, `{ "success": "true" }`)
+	w.Write([]byte(`{ "success": "true" }`))
 }
 
 func (m *Miogo) SetResourceRights(w http.ResponseWriter, r *http.Request, u *User) {
@@ -128,8 +128,8 @@ func (m *Miogo) SetResourceRights(w http.ResponseWriter, r *http.Request, u *Use
 		err = m.db.SetResourceRights(entityType, rights, resource, "")
 	}
 	if err != nil {
-		fmt.Fprint(w, `{"error" : "Can't set rights"}`)
+		w.Write([]byte(`{ "error": "Can't set rights" }`))
 		return
 	}
-	fmt.Fprint(w, `{"success" : "true"}`)
+	w.Write([]byte(`{ "success" : "true" }`))
 }
