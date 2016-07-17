@@ -7,12 +7,8 @@ import (
 )
 
 func (m *Miogo) Login(w http.ResponseWriter, r *http.Request, u *User) {
-	r.ParseForm()
-
 	email := strings.TrimSpace(r.Form["email"][0])
 	password := strings.TrimSpace(r.Form["password"][0])
-
-	w.Header().Set("Content-Type", "application/json")
 
 	if m.loginOK(email, password) {
 		m.newUserSession(email, w)
@@ -24,36 +20,30 @@ func (m *Miogo) Login(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, u *User) {
-	r.ParseForm()
 	mail := strings.TrimSpace(r.Form["email"][0])
 	password := []byte(strings.TrimSpace(r.Form["password"][0]))
 	hashedPassword, _ := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
 	err := m.db.NewUser(mail, string(hashedPassword))
-	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
-		w.Write([]byte(`{ "error" : "Cannot create user" }`))
+		w.Write([]byte(`{ "error": "Cannot create user" }`))
 		return
 	}
 	w.Write([]byte(`{ "success": "true" }`))
 }
 
 func (m *Miogo) RemoveUser(w http.ResponseWriter, r *http.Request, u *User) {
-	r.ParseForm()
 	mail := strings.TrimSpace(r.Form["email"][0])
 	err := m.db.RemoveUser(mail)
-	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
-		w.Write([]byte(`{ "error": "Can't remove user" }`))
+		w.Write([]byte(`{ "error": "Cannot remove user" }`))
 		return
 	}
 	w.Write([]byte(`{ "success": "true" }`))
 }
 
 func (m *Miogo) NewGroup(w http.ResponseWriter, r *http.Request, u *User) {
-	r.ParseForm()
 	group := strings.TrimSpace(r.Form["group"][0])
 	err := m.db.NewGroup(group)
-	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
 		w.Write([]byte(`{ "error": "Cannot create group" }`))
 		return
@@ -62,10 +52,8 @@ func (m *Miogo) NewGroup(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (m *Miogo) RemoveGroup(w http.ResponseWriter, r *http.Request, u *User) {
-	r.ParseForm()
 	group := strings.TrimSpace(r.Form["group"][0])
 	err := m.db.RemoveGroup(group)
-	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
 		w.Write([]byte(`{ "error": "Cannot remove group" }`))
 		return
@@ -74,7 +62,6 @@ func (m *Miogo) RemoveGroup(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (m *Miogo) AddUserToGroup(w http.ResponseWriter, r *http.Request, u *User) {
-	r.ParseForm()
 	userMail := strings.TrimSpace(r.Form["user"][0])
 	group := strings.TrimSpace(r.Form["group"][0])
 	err := m.db.AddUserToGroup(userMail, group)
@@ -86,7 +73,6 @@ func (m *Miogo) AddUserToGroup(w http.ResponseWriter, r *http.Request, u *User) 
 }
 
 func (m *Miogo) RemoveUserFromGroup(w http.ResponseWriter, r *http.Request, u *User) {
-	r.ParseForm()
 	userMail := strings.TrimSpace(r.Form["user"][0])
 	group := strings.TrimSpace(r.Form["group"][0])
 	err := m.db.RemoveUserFromGroup(userMail, group)
@@ -98,12 +84,11 @@ func (m *Miogo) RemoveUserFromGroup(w http.ResponseWriter, r *http.Request, u *U
 }
 
 func (m *Miogo) SetGroupAdmin(w http.ResponseWriter, r *http.Request, u *User) {
-	r.ParseForm()
 	admin := strings.TrimSpace(r.Form["user"][0])
 	group := strings.TrimSpace(r.Form["group"][0])
 	err := m.db.SetGroupAdmin(admin, group)
 	if err != nil {
-		w.Write([]byte(`{ "error": "Can't set admin for group" }`))
+		w.Write([]byte(`{ "error": "Cannot set admin for group" }`))
 		return
 	}
 	w.Write([]byte(`{ "success": "true" }`))

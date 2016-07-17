@@ -11,7 +11,6 @@ import (
 )
 
 func (m *Miogo) GetFile(w http.ResponseWriter, r *http.Request, u *User) {
-	r.ParseForm()
 	path := strings.TrimSpace(r.Form["path"][0])
 
 	if folder, ok := m.db.GetFolderWithFile(path); ok {
@@ -30,9 +29,7 @@ func (m *Miogo) GetFile(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (m *Miogo) GetFolder(w http.ResponseWriter, r *http.Request, u *User) {
-	r.ParseForm()
 	path := strings.TrimRight(strings.TrimSpace(r.Form["path"][0]), "/")
-	w.Header().Set("Content-Type", "application/json")
 
 	if len(path) == 0 {
 		path = "/"
@@ -48,11 +45,7 @@ func (m *Miogo) GetFolder(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (m *Miogo) NewFolder(w http.ResponseWriter, r *http.Request, u *User) {
-	r.ParseForm()
 	path := strings.TrimRight(strings.TrimSpace(r.Form["path"][0]), "/")
-
-	w.Header().Set("Content-Type", "application/json")
-
 	pos := strings.LastIndex(path, "/")
 
 	if pos > -1 {
@@ -66,8 +59,6 @@ func (m *Miogo) NewFolder(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, u *User) {
-	w.Header().Set("Content-Type", "application/json")
-
 	reader, err := r.MultipartReader()
 
 	if err != nil {
@@ -116,7 +107,6 @@ func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (m *Miogo) SetResourceRights(w http.ResponseWriter, r *http.Request, u *User) {
-	r.ParseForm()
 	resource := strings.TrimSpace(r.Form["resource"][0])
 	entityType := strings.TrimSpace(r.Form["type"][0])
 	rights := strings.TrimSpace(r.Form["rights"][0])

@@ -40,6 +40,52 @@ type Group struct {
 
 type ServiceFunc func(http.ResponseWriter, *http.Request, *User)
 
+type MW func(ServiceFunc, *Miogo) ServiceFunc
+
+var JSON = func(sfunc ServiceFunc, _ *Miogo) ServiceFunc {
+	return func(w http.ResponseWriter, r *http.Request, u *User) {
+		w.Header().Set("Content-Type", "application/json")
+		sfunc(w, r, u)
+	}
+}
+
+var Args = func(sfunc ServiceFunc, _ *Miogo) ServiceFunc {
+	return func(w http.ResponseWriter, r *http.Request, u *User) {
+		r.ParseForm()
+		sfunc(w, r, u)
+	}
+}
+
+var Logged = func(sfunc ServiceFunc, m *Miogo) ServiceFunc {
+	return func(w http.ResponseWriter, r *http.Request, _ *User) {
+		if u, ok := m.getSessionUser(r); ok {
+			sfunc(w, r, u)
+		} else {
+			http.Error(w, "Not logged in", http.StatusForbidden)
+		}
+	}
+}
+
+var POST = func(sfunc ServiceFunc, _ *Miogo) ServiceFunc {
+	return func(w http.ResponseWriter, r *http.Request, u *User) {
+		if r.Method == "POST" {
+			sfunc(w, r, u)
+		} else {
+			http.Error(w, "Please send POST requests", http.StatusBadRequest)
+		}
+	}
+}
+
+func (m *Miogo) service(name string, sfunc ServiceFunc, checks []MW) {
+	for _, f := range checks {
+		sfunc = f(sfunc, m)
+	}
+
+	m.mux.HandleFunc("/"+name, func(w http.ResponseWriter, r *http.Request) {
+		sfunc(w, r, nil)
+	})
+}
+
 func NewMiogo() *Miogo {
 	var conf MiogoConfig
 
@@ -68,36 +114,22 @@ func NewMiogo() *Miogo {
 
 	miogo := Miogo{NewMiogoDB(conf.MongoDBHost, conf.CacheDuration, conf.SessionDuration), &conf, http.NewServeMux()}
 
-	miogo.service("GetFile", miogo.GetFile)
-	miogo.service("GetFolder", miogo.GetFolder)
-	miogo.service("NewFolder", miogo.NewFolder)
-	miogo.service("Upload", miogo.Upload)
+	miogo.service("GetFile", miogo.GetFile, []MW{POST, Logged, JSON, Args})
+	miogo.service("GetFolder", miogo.GetFolder, []MW{POST, Logged, JSON, Args})
+	miogo.service("NewFolder", miogo.NewFolder, []MW{POST, Logged, JSON, Args})
+	miogo.service("Upload", miogo.Upload, []MW{Logged, JSON, Args})
 
-	miogo.service("Login", miogo.Login)
+	miogo.service("Login", miogo.Login, []MW{POST, JSON, Args})
 	// TODO: Logout
-	miogo.service("NewUser", miogo.NewUser)
-	miogo.service("RemoveUser", miogo.RemoveUser)
+	miogo.service("NewUser", miogo.NewUser, []MW{POST, Logged, JSON, Args})
+	miogo.service("RemoveUser", miogo.RemoveUser, []MW{POST, Logged, JSON, Args})
 
-	miogo.service("NewGroup", miogo.NewGroup)
-	miogo.service("RemoveGroup", miogo.RemoveGroup)
-	miogo.service("AddUserToGroup", miogo.AddUserToGroup)
-	miogo.service("RemoveUserFromGroup", miogo.RemoveUserFromGroup)
-	miogo.service("SetGroupAdmin", miogo.SetGroupAdmin)
-	miogo.service("SetResourceRights", miogo.SetResourceRights)
+	miogo.service("NewGroup", miogo.NewGroup, []MW{POST, Logged, JSON, Args})
+	miogo.service("RemoveGroup", miogo.RemoveGroup, []MW{POST, Logged, JSON, Args})
+	miogo.service("AddUserToGroup", miogo.AddUserToGroup, []MW{POST, Logged, JSON, Args})
+	miogo.service("RemoveUserFromGroup", miogo.RemoveUserFromGroup, []MW{POST, Logged, JSON, Args})
+	miogo.service("SetGroupAdmin", miogo.SetGroupAdmin, []MW{POST, Logged, JSON, Args})
+	miogo.service("SetResourceRights", miogo.SetResourceRights, []MW{POST, Logged, JSON, Args})
 
 	return &miogo
-}
-
-func (m *Miogo) service(name string, sfunc ServiceFunc) {
-	m.mux.HandleFunc("/"+name, func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" {
-			if usr, ok := m.getSessionUser(r); ok || name == "Login" {
-				sfunc(w, r, usr)
-			} else {
-				http.Error(w, "Not logged in", http.StatusForbidden)
-			}
-		} else {
-			http.Error(w, "Please send POST requests", http.StatusBadRequest)
-		}
-	})
 }
