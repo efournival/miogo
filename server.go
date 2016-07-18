@@ -1,12 +1,13 @@
 package main
 
 import (
-	"github.com/BurntSushi/toml"
-	"gopkg.in/mgo.v2/bson"
 	"log"
 	"net/http"
 	"os"
 	"reflect"
+
+	"github.com/BurntSushi/toml"
+	"gopkg.in/mgo.v2/bson"
 )
 
 type MiogoConfig struct {
@@ -14,6 +15,8 @@ type MiogoConfig struct {
 	TemporaryFolder string
 	SessionDuration int
 	CacheDuration   int
+	AdminEmail      string
+	AdminPassword   string
 }
 
 type Miogo struct {
@@ -112,7 +115,7 @@ func NewMiogo() *Miogo {
 
 	os.Setenv("TMPDIR", conf.TemporaryFolder)
 
-	miogo := Miogo{NewMiogoDB(conf.MongoDBHost, conf.CacheDuration, conf.SessionDuration), &conf, http.NewServeMux()}
+	miogo := Miogo{NewMiogoDB(conf.MongoDBHost, conf.CacheDuration, conf.SessionDuration, conf.AdminEmail, conf.AdminPassword), &conf, http.NewServeMux()}
 
 	miogo.service("GetFile", miogo.GetFile, []MW{POST, Logged, JSON, Args})
 	miogo.service("GetFolder", miogo.GetFolder, []MW{POST, Logged, JSON, Args})

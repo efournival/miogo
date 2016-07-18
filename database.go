@@ -1,13 +1,16 @@
 package main
 
 import (
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 	"io"
 	"log"
 	"mime/multipart"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
+
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 type MiogoDB struct {
@@ -18,7 +21,7 @@ type MiogoDB struct {
 	usersCache      *Cache
 }
 
-func NewMiogoDB(host string, cacheTime int, sessionDuration int) *MiogoDB {
+func NewMiogoDB(host string, cacheTime int, sessionDuration int, adminEmail string, adminPassword string) *MiogoDB {
 	session, err := mgo.Dial(host)
 	if err != nil {
 		log.Panicf("Cannot connect to MongoDB: %s\n", err)
@@ -29,6 +32,11 @@ func NewMiogoDB(host string, cacheTime int, sessionDuration int) *MiogoDB {
 	// Init DB if it's the first time Miogo is launched
 	if count, err := session.DB("miogo").C("folders").Find(selector).Count(); count == 0 && err == nil {
 		session.DB("miogo").C("folders").Insert(selector)
+	}
+
+	if count, err := session.DB("miogo").C("users").Find(bson.M{"admin": "true"}).Count(); count == 0 && err == nil {
+		hashedAdminPassword, _ := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
+		session.DB("miogo").C("users").Insert(bson.M{"email": adminEmail, "password": string(hashedAdminPassword), "admin": "true"})
 	}
 
 	dur := time.Duration(cacheTime) * time.Minute
