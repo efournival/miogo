@@ -1,17 +1,24 @@
 package main
 
 import (
+	"bytes"
+	"crypto/md5"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 var (
-	miogo  *Miogo
-	server *httptest.Server
+	miogo   *Miogo
+	server  *httptest.Server
+	session string
 )
 
 func init() {
@@ -19,9 +26,106 @@ func init() {
 	server = httptest.NewServer(miogo.mux)
 }
 
-func testPOST(t *testing.T, service, params, expected string) (bool, string) {
-	request, err := http.NewRequest("POST", server.URL+"/"+service, strings.NewReader(params))
+func downloadAndHash(path string) string {
+	request, err := http.NewRequest("POST", server.URL+"/GetFile", strings.NewReader("path="+path))
+
+	if err != nil {
+		return ""
+	}
+
+	request.AddCookie(&http.Cookie{Name: "session", Value: session})
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	res, err := http.DefaultClient.Do(request)
+
+	if err != nil {
+		return ""
+	}
+
+	defer res.Body.Close()
+
+	hash := md5.New()
+	io.Copy(hash, res.Body)
+
+	return fmt.Sprintf("%x", hash.Sum(nil))
+}
+
+func hashFile(file string) string {
+	f, err := os.Open(file)
+
+	if err != nil {
+		return ""
+	}
+
+	defer f.Close()
+
+	hash := md5.New()
+
+	if _, err := io.Copy(hash, f); err != nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%x", hash.Sum(nil))
+}
+
+func upload(file, path, expected string) (bool, string) {
+	f, err := os.Open(file)
+
+	if err != nil {
+		return false, err.Error()
+	}
+
+	defer f.Close()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", filepath.Base(file))
+
+	if err != nil {
+		return false, err.Error()
+	}
+
+	_, err = io.Copy(part, f)
+
+	if err != nil {
+		return false, err.Error()
+	}
+
+	writer.WriteField("path", path)
+
+	err = writer.Close()
+
+	if err != nil {
+		return false, err.Error()
+	}
+
+	request, err := http.NewRequest("POST", server.URL+"/Upload", body)
+
+	if err != nil {
+		return false, err.Error()
+	}
+
+	request.Header.Set("Content-Type", "multipart/form-data; boundary="+writer.Boundary())
+
+	return testRequest(request, expected)
+}
+
+func testDownload(t *testing.T, file, source string) {
+	if downloadAndHash(file) != hashFile(source) {
+		t.Error(fmt.Sprintf("Downloaded file (%s) hash differs from source file (%s)", file, source))
+	}
+}
+
+func testUpload(t *testing.T, file, path, expected string) {
+	if ok, err := upload(file, path, expected); !ok {
+		t.Error(err)
+	}
+}
+
+func testRequest(request *http.Request, expected string) (bool, string) {
+	if session != "" {
+		request.AddCookie(&http.Cookie{Name: "session", Value: session})
+	}
+
 	res, err := http.DefaultClient.Do(request)
 
 	if err != nil {
@@ -29,7 +133,7 @@ func testPOST(t *testing.T, service, params, expected string) (bool, string) {
 	}
 
 	if res.StatusCode != 200 {
-		return false, fmt.Sprintf("Expected response code 200 but got %s", res.StatusCode)
+		return false, fmt.Sprintf("Expected response code 200 but got %s", res.Status)
 	}
 
 	b, err := ioutil.ReadAll(res.Body)
@@ -44,23 +148,73 @@ func testPOST(t *testing.T, service, params, expected string) (bool, string) {
 		}
 	}
 
+	for _, v := range res.Cookies() {
+		if v.Name == "session" {
+			session = v.Value
+		}
+	}
+
 	return true, ""
 }
 
-func testSuccessfulPOST(t *testing.T, service, params, expected string) {
-	if ok, err := testPOST(t, service, params, expected); !ok {
+func sendPOST(service, params, expected string) (bool, string) {
+	request, err := http.NewRequest("POST", server.URL+"/"+service, strings.NewReader(params))
+
+	if err != nil {
+		return false, err.Error()
+	}
+
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	return testRequest(request, expected)
+}
+
+func testPOST(t *testing.T, service, params, expected string) {
+	if ok, err := sendPOST(service, params, expected); !ok {
 		t.Error(err)
 	}
 }
 
 func testFailPOST(t *testing.T, service, params string) {
-	if ok, _ := testPOST(t, service, params, ""); ok {
+	if ok, _ := sendPOST(service, params, ""); ok {
 		t.Error("Test should have failed but succeeded")
 	}
 }
 
 func TestLogin(t *testing.T) {
-	testSuccessfulPOST(t, "Login", fmt.Sprintf("email=%sXXX&password=%s", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "false" }`)
-	testSuccessfulPOST(t, "Login", fmt.Sprintf("email=%s&password=%sXXX", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "false" }`)
-	testSuccessfulPOST(t, "Login", fmt.Sprintf("email=%s&password=%s", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "true" }`)
+	testPOST(t, "Login", fmt.Sprintf("email=%sXXX&password=%s", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "false" }`)
+	testPOST(t, "Login", fmt.Sprintf("email=%s&password=%sXXX", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "false" }`)
+
+	if session != "" {
+		t.Error("Session cookie should not have been returned by the server")
+	}
+
+	testPOST(t, "Login", fmt.Sprintf("email=%s&password=%s", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "true" }`)
+
+	if session == "" {
+		t.Error("Session cookie has not been returned by the server")
+	}
+}
+
+func TestNewFolder(t *testing.T) {
+	// TODO: testSuccessfulPOST(t, "NewFolder", "path=/", `{ "error": "..." }`)
+	testPOST(t, "NewFolder", "path=/test/test", `{ "error": "Bad folder name" }`)
+	testPOST(t, "NewFolder", "path=/test", `{ "success": "true" }`)
+	testPOST(t, "NewFolder", "path=/test/test", `{ "success": "true" }`)
+}
+
+func TestGetFolder(t *testing.T) {
+	testPOST(t, "GetFolder", "path=/test", `{"path":"/test"}`)
+	testPOST(t, "GetFolder", "path=/", `{"path":"/","folders":[{"path":"/test"}]}`)
+}
+
+func TestUpload(t *testing.T) {
+	testUpload(t, "README.md", "/test", `{ "success": "true" }`)
+	// TODO: test multiple files upload
+	// TODO: check file(s) have been removed from DB if upload failed
+	testUpload(t, "main.go", "/test/a/b", `{ "error": "Wrong path" }`)
+}
+
+func TestGetFile(t *testing.T) {
+	testDownload(t, "/test/README.md", "README.md")
 }
