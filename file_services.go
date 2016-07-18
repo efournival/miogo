@@ -46,13 +46,10 @@ func (m *Miogo) GetFolder(w http.ResponseWriter, r *http.Request, u *User) {
 
 func (m *Miogo) NewFolder(w http.ResponseWriter, r *http.Request, u *User) {
 	path := strings.TrimRight(strings.TrimSpace(r.Form["path"][0]), "/")
-	pos := strings.LastIndex(path, "/")
 
-	if pos > -1 {
-		if _, ok := m.db.GetFolder(path[:pos+1]); ok {
-			fmt.Fprintf(w, `{ "success": "%t" }`, m.db.NewFolder(path))
-			return
-		}
+	if _, ok := m.db.GetFolder(path[:strings.LastIndex(path, "/")]); ok {
+		fmt.Fprintf(w, `{ "success": "%t" }`, m.db.NewFolder(path))
+		return
 	}
 
 	w.Write([]byte(`{ "error": "Bad folder name" }`))

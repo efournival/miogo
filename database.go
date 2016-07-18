@@ -100,6 +100,10 @@ func (mdb *MiogoDB) SetUserSession(email, hash string) {
 }
 
 func (mdb *MiogoDB) GetFolder(path string) (Folder, bool) {
+	if len(path) == 0 {
+		path = "/"
+	}
+
 	if val, ok := mdb.foldersCache.Get(path); ok {
 		return val.(Folder), true
 	}
