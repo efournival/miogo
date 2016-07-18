@@ -1,7 +1,13 @@
 language: go
 
+go:
+    - 1.6
+    - tip
+
 services: mongodb
 
 notifications:
     slack: miogogo:bSiujv21QBC1J0YmIidUNs4a
 
+before_script:
+    - mv miogo.conf.example miogo.conf

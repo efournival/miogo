@@ -39,7 +39,7 @@ func testPOST(t *testing.T, service, params, expected string) (bool, string) {
 	}
 
 	if expected != "" {
-		if string(b) != expected {
+		if !strings.EqualFold(expected, string(b)) {
 			return false, fmt.Sprintf("Expected: '%s', got: '%s'", expected, string(b))
 		}
 	}
@@ -60,7 +60,7 @@ func testFailPOST(t *testing.T, service, params string) {
 }
 
 func TestLogin(t *testing.T) {
-	testSuccessfulPOST(t, "Login", fmt.Sprintf("email=%sXXX&password=%s", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": false" }`)
-	testSuccessfulPOST(t, "Login", fmt.Sprintf("email=%s&password=%sXXX", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": false" }`)
+	testSuccessfulPOST(t, "Login", fmt.Sprintf("email=%sXXX&password=%s", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "false" }`)
+	testSuccessfulPOST(t, "Login", fmt.Sprintf("email=%s&password=%sXXX", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "false" }`)
 	testSuccessfulPOST(t, "Login", fmt.Sprintf("email=%s&password=%s", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "true" }`)
 }
