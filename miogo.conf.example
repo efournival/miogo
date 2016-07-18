@@ -9,3 +9,7 @@ SessionDuration = 30
 
 # Delay before cleaning old cache entry
 CacheDuration = 30
+
+# Admin settings
+AdminEmail = "admin@miogo.tld"
+AdminPassword = "ChangeMe"
