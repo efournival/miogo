@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"gopkg.in/mgo.v2/bson"
 	"io"
 	"net/http"
 	"strings"
+
+	"gopkg.in/mgo.v2/bson"
 )
 
 func (m *Miogo) GetFile(w http.ResponseWriter, r *http.Request, u *User) {
@@ -104,19 +105,25 @@ func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (m *Miogo) SetResourceRights(w http.ResponseWriter, r *http.Request, u *User) {
-	resource := strings.TrimSpace(r.Form["resource"][0])
-	entityType := strings.TrimSpace(r.Form["type"][0])
-	rights := strings.TrimSpace(r.Form["rights"][0])
 	var err error
-	if entityType == "user" || entityType == "group" {
-		name := strings.TrimSpace(r.Form["name"][0])
-		err = m.db.SetResourceRights(entityType, rights, resource, name)
+
+	rights := strings.TrimSpace(r.Form["rights"][0])
+	resource := strings.TrimSpace(r.Form["resource"][0])
+
+	if _, ok := r.Form["user"]; ok {
+		username := strings.TrimSpace(r.Form["user"][0])
+		err = m.db.SetResourceRights("users", rights, resource, username)
+	} else if _, ok := r.Form["group"]; ok {
+		groupname := strings.TrimSpace(r.Form["group"][0])
+		err = m.db.SetResourceRights("groups", rights, resource, groupname)
 	} else {
-		err = m.db.SetResourceRights(entityType, rights, resource, "")
+		err = m.db.SetResourceRights("all", rights, resource, "")
 	}
+
 	if err != nil {
 		w.Write([]byte(`{ "error": "Can't set rights" }`))
 		return
 	}
+
 	w.Write([]byte(`{ "success" : "true" }`))
 }

@@ -243,20 +243,56 @@ func (mdb *MiogoDB) SetResourceRights(entityType string, rights string, resource
 	if name == "" {
 		name = "all"
 	}
+
+	var err error
+
 	if count, err := mdb.db.C("folders").Find(bson.M{"path": resource}).Count(); count == 0 && err == nil {
 		pos := strings.LastIndex(resource, "/")
 		filename := resource[pos+1:]
 		path := resource[:pos]
+
+		if len(path) == 0 {
+			path = "/"
+		}
+
 		if name == "all" {
-			return mdb.db.C("folders").Update(bson.M{"path": path, "files.name": filename}, bson.M{"$addToSet": bson.M{"files.0.rights": bson.M{"all": "rw"}}})
+			return mdb.db.C("folders").Update(
+				bson.M{"path": path, "files.name": filename},
+				bson.M{"$set": bson.M{"files.0.rights.all": rights}})
 		} else {
-			return mdb.db.C("folders").Update(bson.M{"path": path, "files.name": filename}, bson.M{"$addToSet": bson.M{"files.0.rights." + entityType: bson.M{"name": name, "rights": rights}}})
+			return mdb.db.C("folders").Update(
+				bson.M{"path": path, "files.name": filename},
+				bson.M{"$addToSet": bson.M{"files.0.rights." + entityType: bson.M{"name": name, "rights": rights}}})
 		}
 	} else {
-		if name == "all" {
-			return mdb.db.C("folders").Update(bson.M{"path": resource}, bson.M{"$addToSet": bson.M{"rights": bson.M{"all": "rw"}}})
-		} else {
-			return mdb.db.C("folders").Update(bson.M{"path": resource}, bson.M{"$addToSet": bson.M{"rights." + entityType: bson.M{"name": name, "rights": rights}}})
+		var childFolders []Folder
+
+		cleanResource := strings.Replace(resource, `/`, `\/`, -1)
+
+		mdb.db.C("folders").Find(
+			bson.M{"path": bson.M{"$regex": bson.RegEx{`^` + cleanResource + `(.*)`, ""}}}).All(&childFolders)
+
+		for _, childFolder := range childFolders {
+			if name == "all" {
+				err := mdb.db.C("folders").Update(
+					bson.M{"path": childFolder.Path},
+					bson.M{"$set": bson.M{"rights.all": rights}})
+
+				if err != nil {
+					return err
+				}
+
+			} else {
+				err := mdb.db.C("folders").Update(
+					bson.M{"path": childFolder.Path},
+					bson.M{"$addToSet": bson.M{"rights." + entityType: bson.M{"name": name, "rights": rights}}})
+
+				if err != nil {
+					return err
+				}
+
+			}
 		}
 	}
+	return err
 }

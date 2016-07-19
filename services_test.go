@@ -238,3 +238,14 @@ func TestGroup(t *testing.T) {
 
 	testPOST(t, "SetGroupAdmin", "group=miogo&user=test@miogo.tld", `{ "success": "true" }`)
 }
+
+func TestSetRights(t *testing.T) {
+	testPOST(t, "SetResourceRights", "resource=/&user=test@miogo.tld&rights=rw", `{ "success" : "true" }`)
+	testPOST(t, "SetResourceRights", "resource=/test/README.md&user=test@miogo.tld&rights=rw", `{ "success" : "true" }`)
+
+	testPOST(t, "SetResourceRights", "resource=/&group=miogo&rights=w", `{ "success" : "true" }`)
+	testPOST(t, "SetResourceRights", "resource=/test/README.md&group=miogo&rights=w", `{ "success" : "true" }`)
+
+	testPOST(t, "SetResourceRights", "resource=/&rights=r", `{ "success" : "true" }`)
+	testPOST(t, "SetResourceRights", "resource=/test/README.md&rights=r", `{ "success" : "true" }`)
+}
