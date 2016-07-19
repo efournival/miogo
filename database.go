@@ -280,30 +280,25 @@ func (mdb *MiogoDB) SetResourceRights(entityType string, rights string, resource
 		}
 	} else {
 		var childFolders []Folder
+		var update bson.M
+
 		mdb.foldersCache.Invalidate(resource)
 		mdb.db.C("folders").Find(
 			bson.M{"path": bson.M{"$regex": bson.RegEx{`^` + resource, ""}}}).All(&childFolders)
 
+		if name == "all" {
+			update = bson.M{"$set": bson.M{"rights.all": rights}}
+		} else {
+			update = bson.M{"$addToSet": bson.M{"rights." + entityType: bson.M{"name": name, "rights": rights}}}
+		}
+
 		for _, childFolder := range childFolders {
 			mdb.foldersCache.Invalidate(childFolder.Path)
-			if name == "all" {
-				err := mdb.db.C("folders").Update(
-					bson.M{"path": childFolder.Path},
-					bson.M{"$set": bson.M{"rights.all": rights}})
-
-				if err != nil {
-					return err
-				}
-
-			} else {
-				err := mdb.db.C("folders").Update(
-					bson.M{"path": childFolder.Path},
-					bson.M{"$addToSet": bson.M{"rights." + entityType: bson.M{"name": name, "rights": rights}}})
-
-				if err != nil {
-					return err
-				}
-
+			err := mdb.db.C("folders").Update(
+				bson.M{"path": childFolder.Path},
+				update)
+			if err != nil {
+				return err
 			}
 		}
 	}
