@@ -218,3 +218,23 @@ func TestUpload(t *testing.T) {
 func TestGetFile(t *testing.T) {
 	testDownload(t, "/test/README.md", "README.md")
 }
+
+func TestUser(t *testing.T) {
+	testPOST(t, "NewUser", "email=test@miogo.tld&password=test", `{ "success": "true" }`)
+	testPOST(t, "NewUser", "email=test2@miogo.tld&password=test", `{ "success": "true" }`)
+	testPOST(t, "NewUser", "email=test3@miogo.tld&password=test", `{ "success": "true" }`)
+	testPOST(t, "RemoveUser", "email=test3@miogo.tld", `{ "success": "true" }`)
+	// TODO: List users
+}
+
+func TestGroup(t *testing.T) {
+	testPOST(t, "NewGroup", "group=miogo", `{ "success": "true" }`)
+	testPOST(t, "NewGroup", "group=test", `{ "success": "true" }`)
+
+	// TODO : check if user exists before adding/removing them
+	testPOST(t, "AddUserToGroup", "group=miogo&user=test@miogo.tld", `{ "success": "true" }`)
+	testPOST(t, "AddUserToGroup", "group=miogo&user=test2@miogo.tld", `{ "success": "true" }`)
+	testPOST(t, "RemoveUserFromGroup", "group=miogo&user=test2@miogo.tld", `{ "success": "true" }`)
+
+	testPOST(t, "SetGroupAdmin", "group=miogo&user=test@miogo.tld", `{ "success": "true" }`)
+}
