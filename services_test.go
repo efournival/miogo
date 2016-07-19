@@ -181,6 +181,14 @@ func testFailPOST(t *testing.T, service, params string) {
 	}
 }
 
+func TestArgs(t *testing.T) {
+	testFailPOST(t, "Login", "password="+miogo.conf.AdminPassword)
+	testFailPOST(t, "Login", "email="+miogo.conf.AdminEmail)
+	testFailPOST(t, "Login", "password=XXX"+miogo.conf.AdminPassword)
+	testFailPOST(t, "Login", "email=XXX"+miogo.conf.AdminEmail)
+	testFailPOST(t, "Login", "passw&ord=garba&ge")
+}
+
 func TestLogin(t *testing.T) {
 	testPOST(t, "Login", fmt.Sprintf("email=%sXXX&password=%s", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "false" }`)
 	testPOST(t, "Login", fmt.Sprintf("email=%s&password=%sXXX", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "false" }`)

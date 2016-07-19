@@ -54,54 +54,6 @@ type Group struct {
 	Admins []User `json:"admins,omitempty"`
 }
 
-type ServiceFunc func(http.ResponseWriter, *http.Request, *User)
-
-type MW func(ServiceFunc, *Miogo) ServiceFunc
-
-var JSON = func(sfunc ServiceFunc, _ *Miogo) ServiceFunc {
-	return func(w http.ResponseWriter, r *http.Request, u *User) {
-		w.Header().Set("Content-Type", "application/json")
-		sfunc(w, r, u)
-	}
-}
-
-var Args = func(sfunc ServiceFunc, _ *Miogo) ServiceFunc {
-	return func(w http.ResponseWriter, r *http.Request, u *User) {
-		r.ParseForm()
-		sfunc(w, r, u)
-	}
-}
-
-var Logged = func(sfunc ServiceFunc, m *Miogo) ServiceFunc {
-	return func(w http.ResponseWriter, r *http.Request, _ *User) {
-		if u, ok := m.getSessionUser(r); ok {
-			sfunc(w, r, u)
-		} else {
-			http.Error(w, "Not logged in", http.StatusForbidden)
-		}
-	}
-}
-
-var POST = func(sfunc ServiceFunc, _ *Miogo) ServiceFunc {
-	return func(w http.ResponseWriter, r *http.Request, u *User) {
-		if r.Method == "POST" {
-			sfunc(w, r, u)
-		} else {
-			http.Error(w, "Please send POST requests", http.StatusBadRequest)
-		}
-	}
-}
-
-func (m *Miogo) service(name string, sfunc ServiceFunc, checks []MW) {
-	for _, f := range checks {
-		sfunc = f(sfunc, m)
-	}
-
-	m.mux.HandleFunc("/"+name, func(w http.ResponseWriter, r *http.Request) {
-		sfunc(w, r, nil)
-	})
-}
-
 func NewMiogo() *Miogo {
 	var conf MiogoConfig
 
@@ -130,22 +82,75 @@ func NewMiogo() *Miogo {
 
 	miogo := Miogo{NewMiogoDB(conf.MongoDBHost, conf.CacheDuration, conf.SessionDuration, conf.AdminEmail, conf.AdminPassword), &conf, http.NewServeMux()}
 
-	miogo.service("GetFile", miogo.GetFile, []MW{POST, Logged, JSON, Args})
-	miogo.service("GetFolder", miogo.GetFolder, []MW{POST, Logged, JSON, Args})
-	miogo.service("NewFolder", miogo.NewFolder, []MW{POST, Logged, JSON, Args})
-	miogo.service("Upload", miogo.Upload, []MW{Logged, JSON, Args})
+	miogo.RegisterService(&Service{
+		Handler:         miogo.GetFile,
+		Options:         NoJSON,
+		MandatoryFields: []string{"path"},
+	})
 
-	miogo.service("Login", miogo.Login, []MW{POST, JSON, Args})
+	miogo.RegisterService(&Service{
+		Handler:         miogo.GetFolder,
+		MandatoryFields: []string{"path"},
+	})
+
+	miogo.RegisterService(&Service{
+		Handler:         miogo.NewFolder,
+		MandatoryFields: []string{"path"},
+	})
+
+	miogo.RegisterService(&Service{
+		Handler: miogo.Upload,
+		Options: NoFormParsing,
+	})
+
+	miogo.RegisterService(&Service{
+		Handler:         miogo.Login,
+		Options:         NoLoginCheck,
+		MandatoryFields: []string{"email", "password"},
+	})
+
 	// TODO: Logout
-	miogo.service("NewUser", miogo.NewUser, []MW{POST, Logged, JSON, Args})
-	miogo.service("RemoveUser", miogo.RemoveUser, []MW{POST, Logged, JSON, Args})
 
-	miogo.service("NewGroup", miogo.NewGroup, []MW{POST, Logged, JSON, Args})
-	miogo.service("RemoveGroup", miogo.RemoveGroup, []MW{POST, Logged, JSON, Args})
-	miogo.service("AddUserToGroup", miogo.AddUserToGroup, []MW{POST, Logged, JSON, Args})
-	miogo.service("RemoveUserFromGroup", miogo.RemoveUserFromGroup, []MW{POST, Logged, JSON, Args})
-	miogo.service("SetGroupAdmin", miogo.SetGroupAdmin, []MW{POST, Logged, JSON, Args})
-	miogo.service("SetResourceRights", miogo.SetResourceRights, []MW{POST, Logged, JSON, Args})
+	miogo.RegisterService(&Service{
+		Handler:         miogo.NewUser,
+		MandatoryFields: []string{"email", "password"},
+	})
+
+	miogo.RegisterService(&Service{
+		Handler:         miogo.RemoveUser,
+		MandatoryFields: []string{"email"},
+	})
+
+	miogo.RegisterService(&Service{
+		Handler:         miogo.NewGroup,
+		MandatoryFields: []string{"group"},
+	})
+
+	miogo.RegisterService(&Service{
+		Handler:         miogo.RemoveGroup,
+		MandatoryFields: []string{"group"},
+	})
+
+	miogo.RegisterService(&Service{
+		Handler:         miogo.AddUserToGroup,
+		MandatoryFields: []string{"user", "group"},
+	})
+
+	miogo.RegisterService(&Service{
+		Handler:         miogo.RemoveUserFromGroup,
+		MandatoryFields: []string{"user", "group"},
+	})
+
+	miogo.RegisterService(&Service{
+		Handler:         miogo.SetGroupAdmin,
+		MandatoryFields: []string{"user", "group"},
+	})
+
+	miogo.RegisterService(&Service{
+		Handler:         miogo.SetResourceRights,
+		MandatoryFields: []string{"resource", "rights"},
+		AtLeastOneField: []string{"user", "group", "all"},
+	})
 
 	return &miogo
 }
