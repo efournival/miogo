@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"log"
 	"mime/multipart"
@@ -210,7 +211,11 @@ func (mdb *MiogoDB) GetFile(destination io.Writer, id bson.ObjectId) error {
 }
 
 func (mdb *MiogoDB) NewUser(mail string, password string) error {
-	return mdb.db.C("users").Insert(bson.M{"email": mail, "password": password})
+	if _, exists := mdb.GetUser(mail); exists {
+		return errors.New("user already exists")
+	} else {
+		return mdb.db.C("users").Insert(bson.M{"email": mail, "password": password})
+	}
 }
 
 func (mdb *MiogoDB) RemoveUser(mail string) error {

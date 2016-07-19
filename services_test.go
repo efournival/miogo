@@ -228,6 +228,7 @@ func TestUser(t *testing.T) {
 	testPOST(t, "NewUser", "email=test2@miogo.tld&password=test", `{ "success": "true" }`)
 	testPOST(t, "NewUser", "email=test3@miogo.tld&password=test", `{ "success": "true" }`)
 	testPOST(t, "RemoveUser", "email=test3@miogo.tld", `{ "success": "true" }`)
+	testPOST(t, "NewUser", "email=test@miogo.tld&password=1234", `{ "error": "user already exists" }`)
 	// TODO: List users
 }
 
@@ -239,6 +240,10 @@ func TestGroup(t *testing.T) {
 	testPOST(t, "AddUserToGroup", "group=miogo&user=test@miogo.tld", `{ "success": "true" }`)
 	testPOST(t, "AddUserToGroup", "group=miogo&user=test2@miogo.tld", `{ "success": "true" }`)
 	testPOST(t, "RemoveUserFromGroup", "group=miogo&user=test2@miogo.tld", `{ "success": "true" }`)
+
+	testPOST(t, "AddUserToGroup", "group=test&user=test@miogo.tld", `{ "success": "true" }`)
+	testPOST(t, "AddUserToGroup", "group=test&user=test2@miogo.tld", `{ "success": "true" }`)
+	testPOST(t, "RemoveGroup", "group=test", `{ "success": "true" }`)
 
 	testPOST(t, "SetGroupAdmin", "group=miogo&user=test@miogo.tld", `{ "success": "true" }`)
 }

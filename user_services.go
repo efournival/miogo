@@ -1,9 +1,10 @@
 package main
 
 import (
-	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strings"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (m *Miogo) Login(w http.ResponseWriter, r *http.Request, u *User) {
@@ -25,7 +26,7 @@ func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, u *User) {
 	hashedPassword, _ := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
 	err := m.db.NewUser(mail, string(hashedPassword))
 	if err != nil {
-		w.Write([]byte(`{ "error": "Cannot create user" }`))
+		w.Write([]byte(`{ "error": "` + err.Error() + `" }`))
 		return
 	}
 	w.Write([]byte(`{ "success": "true" }`))
