@@ -46,7 +46,7 @@ func (m *Miogo) NewGroup(w http.ResponseWriter, r *http.Request, u *User) {
 	group := strings.TrimSpace(r.Form["group"][0])
 	err := m.db.NewGroup(group)
 	if err != nil {
-		w.Write([]byte(`{ "error": "Cannot create group" }`))
+		w.Write([]byte(`{ "error": "` + err.Error() + `" }`))
 		return
 	}
 	w.Write([]byte(`{ "success": "true" }`))

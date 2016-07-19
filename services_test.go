@@ -235,6 +235,7 @@ func TestUser(t *testing.T) {
 func TestGroup(t *testing.T) {
 	testPOST(t, "NewGroup", "group=miogo", `{ "success": "true" }`)
 	testPOST(t, "NewGroup", "group=test", `{ "success": "true" }`)
+	testPOST(t, "NewGroup", "group=miogo", `{ "error": "group already exists" }`)
 
 	// TODO : check if user exists before adding/removing them
 	testPOST(t, "AddUserToGroup", "group=miogo&user=test@miogo.tld", `{ "success": "true" }`)

@@ -223,7 +223,11 @@ func (mdb *MiogoDB) RemoveUser(mail string) error {
 }
 
 func (mdb *MiogoDB) NewGroup(name string) error {
-	return mdb.db.C("groups").Insert(bson.M{"_id": name})
+	if count, err := mdb.db.C("groups").Find(bson.M{"_id": name}).Count(); count != 0 && err == nil {
+		return errors.New("group already exists")
+	} else {
+		return mdb.db.C("groups").Insert(bson.M{"_id": name})
+	}
 }
 
 func (mdb *MiogoDB) RemoveGroup(name string) error {
