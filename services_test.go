@@ -205,7 +205,6 @@ func TestLogin(t *testing.T) {
 }
 
 func TestNewFolder(t *testing.T) {
-	// TODO: testSuccessfulPOST(t, "NewFolder", "path=/", `{ "error": "..." }`)
 	testPOST(t, "NewFolder", "path=/test/test", `{ "error": "Bad folder name" }`)
 	testPOST(t, "NewFolder", "path=/test", `{ "success": "true" }`)
 	testPOST(t, "NewFolder", "path=/test/test", `{ "success": "true" }`)

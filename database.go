@@ -253,13 +253,34 @@ func (mdb *MiogoDB) SetGroupAdmin(user string, group string) error {
 }
 
 func (mdb *MiogoDB) SetResourceRights(entityType string, rights string, resource string, name string) error {
-	if name == "" {
-		name = "all"
+	resource = strings.TrimRight(resource, "/")
+
+	// TODO: make a reusable function
+	if len(resource) == 0 {
+		resource = "/"
 	}
 
-	var err error
+	if _, ok := mdb.GetFolder(resource); ok {
+		var err error
+		//selector := bson.M{"path": bson.RegEx{`^` + resource, ""}}
+		selector := bson.M{"path": bson.M{"$regex": bson.RegEx{`^` + resource, ""}}}
 
-	if count, err := mdb.db.C("folders").Find(bson.M{"path": resource}).Count(); count == 0 && err == nil {
+		// TODO: set child files rights?
+
+		if entityType == "all" {
+			_, err = mdb.db.C("folders").UpdateAll(selector, bson.M{"$set": bson.M{"rights.all": rights}})
+		} else {
+			_, err = mdb.db.C("folders").UpdateAll(selector, bson.M{"$addToSet": bson.M{"rights." + entityType: bson.M{"name": name, "rights": rights}}})
+		}
+
+		if err == nil {
+			mdb.foldersCache.InvalidateStartWith(resource)
+		}
+
+		return err
+	}
+
+	if _, ok := mdb.GetFolderWithFile(resource); ok {
 		pos := strings.LastIndex(resource, "/")
 		filename := resource[pos+1:]
 		path := resource[:pos]
@@ -269,38 +290,16 @@ func (mdb *MiogoDB) SetResourceRights(entityType string, rights string, resource
 			path = "/"
 		}
 
-		if name == "all" {
+		if entityType == "all" {
 			return mdb.db.C("folders").Update(
 				bson.M{"path": path, "files.name": filename},
 				bson.M{"$set": bson.M{"files.0.rights.all": rights}})
-		} else {
-			return mdb.db.C("folders").Update(
-				bson.M{"path": path, "files.name": filename},
-				bson.M{"$addToSet": bson.M{"files.0.rights." + entityType: bson.M{"name": name, "rights": rights}}})
-		}
-	} else {
-		var childFolders []Folder
-		var update bson.M
-
-		mdb.foldersCache.Invalidate(resource)
-		mdb.db.C("folders").Find(
-			bson.M{"path": bson.M{"$regex": bson.RegEx{`^` + resource, ""}}}).All(&childFolders)
-
-		if name == "all" {
-			update = bson.M{"$set": bson.M{"rights.all": rights}}
-		} else {
-			update = bson.M{"$addToSet": bson.M{"rights." + entityType: bson.M{"name": name, "rights": rights}}}
 		}
 
-		for _, childFolder := range childFolders {
-			mdb.foldersCache.Invalidate(childFolder.Path)
-			err := mdb.db.C("folders").Update(
-				bson.M{"path": childFolder.Path},
-				update)
-			if err != nil {
-				return err
-			}
-		}
+		return mdb.db.C("folders").Update(
+			bson.M{"path": path, "files.name": filename},
+			bson.M{"$addToSet": bson.M{"files.0.rights." + entityType: bson.M{"name": name, "rights": rights}}})
 	}
-	return err
+
+	return errors.New("Resource does not exist")
 }
