@@ -48,17 +48,17 @@ func (m *Miogo) GetFolder(w http.ResponseWriter, r *http.Request, u *User) {
 func (m *Miogo) NewFolder(w http.ResponseWriter, r *http.Request, u *User) {
 	path := strings.TrimRight(strings.TrimSpace(r.Form["path"][0]), "/")
 
-	if _, ok := m.db.GetFolder(path[:strings.LastIndex(path, "/")]); ok {
-		if res := m.db.NewFolder(path); res {
-			fmt.Fprintf(w, `{ "success": "true" }`)
-			return
-		} else {
-			fmt.Fprintf(w, `{ "error": "Folder already exists" }`)
-			return
-		}
+	if _, ok := m.db.GetFolder(path[:strings.LastIndex(path, "/")]); !ok {
+		w.Write([]byte(`{ "error": "Bad folder name" }`))
+		return
 	}
 
-	w.Write([]byte(`{ "error": "Bad folder name" }`))
+	if res := m.db.NewFolder(path); !res {
+		w.Write([]byte(`{ "error": "Folder already exists" }`))
+		return
+	}
+
+	w.Write([]byte(`{ "success": "true" }`))
 }
 
 func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, u *User) {
