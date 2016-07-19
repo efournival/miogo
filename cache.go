@@ -43,3 +43,20 @@ func (c *Cache) Invalidate(key string) {
 	delete(c.Entries, key)
 	c.Unlock()
 }
+
+func (c *Cache) InvalidateStartWith(key string) {
+	l := len(key)
+
+	// Lock until every child folders are invalidated
+	c.Lock()
+
+	for k, _ := range c.Entries {
+		if len(k) >= l {
+			if k[:l] == key {
+				delete(c.Entries, k)
+			}
+		}
+	}
+
+	c.Unlock()
+}
