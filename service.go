@@ -74,13 +74,17 @@ func (s *Service) Validate(f url.Values) bool {
 		}
 	}
 
-	good := true
+	if len(s.AtLeastOneField) > 0 {
+		good := false
 
-	for _, v := range s.AtLeastOneField {
-		if _, ok := f[v]; !ok {
-			good = false
+		for _, v := range s.AtLeastOneField {
+			if _, ok := f[v]; !ok {
+				good = true
+			}
 		}
+
+		return good
 	}
 
-	return good
+	return true
 }
