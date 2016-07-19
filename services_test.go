@@ -203,11 +203,6 @@ func TestNewFolder(t *testing.T) {
 	testPOST(t, "NewFolder", "path=/test/test", `{ "success": "true" }`)
 }
 
-func TestGetFolder(t *testing.T) {
-	testPOST(t, "GetFolder", "path=/test", `{"path":"/test"}`)
-	testPOST(t, "GetFolder", "path=/", `{"path":"/","folders":[{"path":"/test"}]}`)
-}
-
 func TestUpload(t *testing.T) {
 	testUpload(t, "README.md", "/test", `{ "success": "true" }`)
 	// TODO: test multiple files upload
@@ -248,4 +243,10 @@ func TestSetRights(t *testing.T) {
 
 	testPOST(t, "SetResourceRights", "resource=/&rights=r", `{ "success" : "true" }`)
 	testPOST(t, "SetResourceRights", "resource=/test/README.md&rights=r", `{ "success" : "true" }`)
+}
+
+func TestGetFolder(t *testing.T) {
+	testPOST(t, "GetFolder", "path=/test/test", `{"path":"/test/test","rights":{"groups":[{"name":"miogo","rights":"w"}],"users":[{"name":"test@miogo.tld","rights":"rw"}]}}`)
+	testPOST(t, "GetFolder", "path=/test", `{"path":"/test","files":[{"name":"README.md","rights":{"groups":[{"name":"miogo","rights":"w"}],"users":[{"name":"test@miogo.tld","rights":"rw"}]}}],"folders":[{"path":"/test/test","rights":{}}],"rights":{"groups":[{"name":"miogo","rights":"w"}],"users":[{"name":"test@miogo.tld","rights":"rw"}]}}`)
+	testPOST(t, "GetFolder", "path=/", `{"path":"/","folders":[{"path":"/test","rights":{}}],"rights":{"groups":[{"name":"miogo","rights":"w"}],"users":[{"name":"test@miogo.tld","rights":"rw"}]}}`)
 }

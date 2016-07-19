@@ -28,12 +28,25 @@ type Miogo struct {
 type File struct {
 	Name   string        `bson:"name" json:"name"`
 	FileID bson.ObjectId `bson:"file_id" json:"-"`
+	Rights Right         `json:"rights,omitempty" bson:"rights"`
 }
 
 type Folder struct {
 	Path    string   `bson:"path" json:"path"`
 	Files   []File   `bson:"files" json:"files,omitempty"`
 	Folders []Folder `json:"folders,omitempty"`
+	Rights  Right    `json:"rights,omitempty" bson:"rights"`
+}
+
+type Right struct {
+	All    string        `json:"all,omitempty" bson:"rights"`
+	Groups []EntityRight `json:"groups,omitempty" bson:"groups"`
+	Users  []EntityRight `json:"users,omitempty" bson:"users"`
+}
+
+type EntityRight struct {
+	Name   string `json:"name,omitempty" bson:"name"`
+	Rights string `json:"rights,omitempty" bson:"rights"`
 }
 
 type Group struct {
