@@ -267,10 +267,8 @@ func (mdb *MiogoDB) SetResourceRights(entityType string, rights string, resource
 	} else {
 		var childFolders []Folder
 
-		cleanResource := strings.Replace(resource, `/`, `\/`, -1)
-
 		mdb.db.C("folders").Find(
-			bson.M{"path": bson.M{"$regex": bson.RegEx{`^` + cleanResource + `(.*)`, ""}}}).All(&childFolders)
+			bson.M{"path": bson.M{"$regex": bson.RegEx{`^` + resource, ""}}}).All(&childFolders)
 
 		for _, childFolder := range childFolders {
 			if name == "all" {
