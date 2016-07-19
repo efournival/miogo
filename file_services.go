@@ -116,8 +116,11 @@ func (m *Miogo) SetResourceRights(w http.ResponseWriter, r *http.Request, u *Use
 	} else if _, ok := r.Form["group"]; ok {
 		groupname := strings.TrimSpace(r.Form["group"][0])
 		err = m.db.SetResourceRights("groups", rights, resource, groupname)
-	} else {
+	} else if _, ok := r.Form["all"]; ok {
 		err = m.db.SetResourceRights("all", rights, resource, "")
+	} else {
+		w.Write([]byte(`{ "error": "Missing mandatory parameters" }`))
+		return
 	}
 
 	if err != nil {

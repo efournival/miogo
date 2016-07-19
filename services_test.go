@@ -241,8 +241,8 @@ func TestSetRights(t *testing.T) {
 	testPOST(t, "SetResourceRights", "resource=/&group=miogo&rights=w", `{ "success" : "true" }`)
 	testPOST(t, "SetResourceRights", "resource=/test/README.md&group=miogo&rights=w", `{ "success" : "true" }`)
 
-	testPOST(t, "SetResourceRights", "resource=/&rights=r", `{ "success" : "true" }`)
-	testPOST(t, "SetResourceRights", "resource=/test/README.md&rights=r", `{ "success" : "true" }`)
+	testPOST(t, "SetResourceRights", "resource=/&rights=r&all=", `{ "success" : "true" }`)
+	testPOST(t, "SetResourceRights", "resource=/test/README.md&rights=r&all=", `{ "success" : "true" }`)
 }
 
 func TestGetFolder(t *testing.T) {
