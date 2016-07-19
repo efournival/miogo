@@ -49,8 +49,13 @@ func (m *Miogo) NewFolder(w http.ResponseWriter, r *http.Request, u *User) {
 	path := strings.TrimRight(strings.TrimSpace(r.Form["path"][0]), "/")
 
 	if _, ok := m.db.GetFolder(path[:strings.LastIndex(path, "/")]); ok {
-		fmt.Fprintf(w, `{ "success": "%t" }`, m.db.NewFolder(path))
-		return
+		if res := m.db.NewFolder(path); res {
+			fmt.Fprintf(w, `{ "success": "true" }`)
+			return
+		} else {
+			fmt.Fprintf(w, `{ "error": "Folder already exists" }`)
+			return
+		}
 	}
 
 	w.Write([]byte(`{ "error": "Bad folder name" }`))

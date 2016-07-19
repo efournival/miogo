@@ -166,7 +166,11 @@ func (mdb *MiogoDB) NewFolder(path string) bool {
 
 	mdb.foldersCache.Invalidate(parent)
 
-	return mdb.db.C("folders").Insert(bson.M{"path": path}) == nil
+	if _, exists := mdb.GetFolder(path); exists {
+		return false
+	} else {
+		return mdb.db.C("folders").Insert(bson.M{"path": path}) == nil
+	}
 }
 
 func (mdb *MiogoDB) CreateFile(part *multipart.Part) (bson.ObjectId, string, error) {
@@ -250,6 +254,7 @@ func (mdb *MiogoDB) SetResourceRights(entityType string, rights string, resource
 		pos := strings.LastIndex(resource, "/")
 		filename := resource[pos+1:]
 		path := resource[:pos]
+		mdb.foldersCache.Invalidate(path)
 
 		if len(path) == 0 {
 			path = "/"
@@ -266,11 +271,12 @@ func (mdb *MiogoDB) SetResourceRights(entityType string, rights string, resource
 		}
 	} else {
 		var childFolders []Folder
-
+		mdb.foldersCache.Invalidate(resource)
 		mdb.db.C("folders").Find(
 			bson.M{"path": bson.M{"$regex": bson.RegEx{`^` + resource, ""}}}).All(&childFolders)
 
 		for _, childFolder := range childFolders {
+			mdb.foldersCache.Invalidate(childFolder.Path)
 			if name == "all" {
 				err := mdb.db.C("folders").Update(
 					bson.M{"path": childFolder.Path},

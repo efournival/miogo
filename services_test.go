@@ -209,6 +209,7 @@ func TestNewFolder(t *testing.T) {
 	testPOST(t, "NewFolder", "path=/test/test", `{ "error": "Bad folder name" }`)
 	testPOST(t, "NewFolder", "path=/test", `{ "success": "true" }`)
 	testPOST(t, "NewFolder", "path=/test/test", `{ "success": "true" }`)
+	testPOST(t, "NewFolder", "path=/test/test", `{ "error": "Folder already exists" }`)
 }
 
 func TestUpload(t *testing.T) {
