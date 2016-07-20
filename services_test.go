@@ -264,3 +264,13 @@ func TestGetFolder(t *testing.T) {
 	testPOST(t, "GetFolder", "path=/test", `{"path":"/test","files":[{"name":"README.md","rights":{"all":"r","groups":[{"name":"miogo","rights":"w"}],"users":[{"name":"test@miogo.tld","rights":"rw"}]}}],"folders":[{"path":"/test/test"}],"rights":{"all":"r","groups":[{"name":"miogo","rights":"w"}],"users":[{"name":"test@miogo.tld","rights":"rw"}]}}`)
 	testPOST(t, "GetFolder", "path=/", `{"path":"/","folders":[{"path":"/test"}],"rights":{"all":"r","groups":[{"name":"miogo","rights":"w"}],"users":[{"name":"test@miogo.tld","rights":"rw"}]}}`)
 }
+
+func TestLogout(t *testing.T) {
+	testPOST(t, "Logout", "", `{ "success": "true" }`)
+
+	if session != "" {
+		t.Error("Session cookie should have been cleared")
+	}
+
+	testFailPOST(t, "Logout", "")
+}

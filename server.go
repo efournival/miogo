@@ -109,7 +109,11 @@ func NewMiogo() *Miogo {
 		MandatoryFields: []string{"email", "password"},
 	})
 
-	// TODO: Logout
+	miogo.RegisterService(&Service{
+		Handler:         miogo.Logout,
+		Options:         NoFormParsing,
+		MandatoryFields: []string{"path"},
+	})
 
 	miogo.RegisterService(&Service{
 		Handler:         miogo.NewUser,

@@ -1,23 +1,30 @@
 package main
 
 import (
+	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strings"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 func (m *Miogo) Login(w http.ResponseWriter, r *http.Request, u *User) {
 	email := strings.TrimSpace(r.Form["email"][0])
 	password := strings.TrimSpace(r.Form["password"][0])
 
-	if m.loginOK(email, password) {
-		m.newUserSession(email, w)
-		w.Write([]byte(`{ "success": "true" }`))
-		return
+	if usr, ok := m.db.GetUser(email); ok {
+		if err := bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(password)); err == nil {
+			m.newUserSession(email, w)
+			w.Write([]byte(`{ "success": "true" }`))
+			return
+		}
 	}
 
 	w.Write([]byte(`{ "success": "false" }`))
+}
+
+func (m *Miogo) Logout(w http.ResponseWriter, r *http.Request, u *User) {
+	m.db.RemoveUserSession(u)
+	http.SetCookie(w, &http.Cookie{Name: "session", Value: "", MaxAge: -1})
+	w.Write([]byte(`{ "success": "true" }`))
 }
 
 func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, u *User) {

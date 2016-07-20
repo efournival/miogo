@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"golang.org/x/crypto/bcrypt"
 	"log"
 	"net/http"
 )
@@ -40,14 +39,6 @@ func (m *Miogo) getSessionUser(r *http.Request) (*User, bool) {
 	}
 
 	return nil, false
-}
-
-func (m *Miogo) loginOK(email, password string) bool {
-	if usr, ok := m.db.GetUser(email); ok {
-		return bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(password)) == nil
-	}
-
-	return false
 }
 
 func (m *Miogo) newUserSession(email string, w http.ResponseWriter) {

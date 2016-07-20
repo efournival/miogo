@@ -100,6 +100,10 @@ func (mdb *MiogoDB) SetUserSession(email, hash string) {
 	mdb.db.C("users").Update(bson.M{"email": email}, bson.M{"$set": bson.M{"session": bson.M{"hash": hash, "expiration": bson.Now().Add(mdb.sessionDuration).Unix()}}})
 }
 
+func (mdb *MiogoDB) RemoveUserSession(usr *User) {
+	mdb.db.C("users").Update(bson.M{"session.hash": usr.Session.Hash}, bson.M{"$unset": "session"})
+}
+
 func (mdb *MiogoDB) GetFolder(path string) (Folder, bool) {
 	if len(path) == 0 {
 		path = "/"
