@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"errors"
 	"io"
 	"log"
@@ -19,7 +20,7 @@ type MiogoDB struct {
 	sessionDuration time.Duration
 	filesCache      *Cache
 	foldersCache    *Cache
-	usersCache      *Cache
+	sessionsCache   *Cache
 }
 
 func NewMiogoDB(host string, cacheTime int, sessionDuration int, adminEmail string, adminPassword string) *MiogoDB {
@@ -51,14 +52,6 @@ func NewMiogoDB(host string, cacheTime int, sessionDuration int, adminEmail stri
 	}
 }
 
-func (mdb *MiogoDB) updateUserSession(usr User) User {
-	usr.Session.Expiration = time.Now().Add(mdb.sessionDuration).Unix()
-	mdb.db.C("users").Update(bson.M{"session.hash": usr.Session.Hash}, bson.M{"session.expiration": usr.Session.Expiration})
-	mdb.usersCache.Set(usr.Session.Hash, usr)
-
-	return usr
-}
-
 func (mdb *MiogoDB) GetUser(email string) (User, bool) {
 	query := mdb.db.C("users").Find(bson.M{"email": email})
 
@@ -71,37 +64,62 @@ func (mdb *MiogoDB) GetUser(email string) (User, bool) {
 	return User{}, false
 }
 
-func (mdb *MiogoDB) GetUserFromSession(session string) (User, bool) {
-	if val, ok := mdb.usersCache.Get(session); ok {
-		if val.(User).Session.Expiration > time.Now().Unix() {
-			return mdb.updateUserSession(val.(User)), true
-		}
-
+func (mdb *MiogoDB) updateUserSession(usr User, raw string) (User, bool) {
+	if usr.Session.Expiration < time.Now().Unix() {
 		return User{}, false
 	}
 
-	query := mdb.db.C("users").Find(bson.M{"session.hash": session})
+	usr.Session.Expiration = time.Now().Add(mdb.sessionDuration).Unix()
+	mdb.db.C("users").Update(bson.M{"session.hash": usr.Session.Hash}, bson.M{"session.expiration": usr.Session.Expiration})
+	mdb.sessionsCache.Set(raw, usr)
+
+	return usr, true
+}
+
+/*
+ * Login:
+ *   1. User's password is checked
+ *   2. Session is created in DB
+ *   3. Raw session is cached (unsecure but only in RAM)
+ *   4. Cookie is set
+ *
+ * Access to a service requiring login:
+ *   1. Cookie is fetched
+ *   2. If raw session is in cache, go to 4
+ *   3. Otherwise, hash raw session and check if an user matches
+ *   4. Update session expiration then return user to the service
+ */
+func (mdb *MiogoDB) GetUserFromSession(raw string) (User, bool) {
+	if val, ok := mdb.sessionsCache.Get(raw); ok {
+		return mdb.updateUserSession(val.(User), raw)
+	}
+
+	val, _ := hex.DecodeString(raw)
+	query := mdb.db.C("users").Find(bson.M{"session.hash": hash(val)})
 
 	if count, err := query.Count(); count > 0 && err == nil {
 		var user User
 		query.One(&user)
-
-		if user.Session.Expiration > time.Now().Unix() {
-			return User{}, false
-		}
-
-		return mdb.updateUserSession(user), true
+		return mdb.updateUserSession(user, raw)
 	}
 
 	return User{}, false
 }
 
-func (mdb *MiogoDB) SetUserSession(email, hash string) {
-	mdb.db.C("users").Update(bson.M{"email": email}, bson.M{"$set": bson.M{"session": bson.M{"hash": hash, "expiration": bson.Now().Add(mdb.sessionDuration).Unix()}}})
+func (mdb *MiogoDB) SetUserSession(usr User, raw, hash string) {
+	expiration := bson.Now().Add(mdb.sessionDuration).Unix()
+
+	mdb.db.C("users").Update(bson.M{"email": usr.Email}, bson.M{"$set": bson.M{"session": bson.M{"hash": hash, "expiration": expiration}}})
+
+	usr.Session.Hash = hash
+	usr.Session.Expiration = expiration
+
+	mdb.sessionsCache.Set(raw, usr)
 }
 
-func (mdb *MiogoDB) RemoveUserSession(usr *User) {
+func (mdb *MiogoDB) RemoveUserSession(usr *User, raw string) {
 	mdb.db.C("users").Update(bson.M{"session.hash": usr.Session.Hash}, bson.M{"$unset": "session"})
+	mdb.sessionsCache.Invalidate(raw)
 }
 
 func (mdb *MiogoDB) GetFolder(path string) (Folder, bool) {

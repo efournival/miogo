@@ -9,7 +9,7 @@ import (
 )
 
 type User struct {
-	Mail     string  `bson:"mail" json:"mail"`
+	Email    string  `bson:"email" json:"email"`
 	Password string  `bson:"password" json:"password"`
 	Groups   []Group `json:"groups,omitempty"`
 	Session  struct {
@@ -24,33 +24,29 @@ func hash(val []byte) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func (m *Miogo) getSessionUser(r *http.Request) (*User, bool) {
+func (m *Miogo) GetSessionUser(r *http.Request) (*User, bool) {
 	ck, err := r.Cookie("session")
 
 	if err != nil {
 		return nil, false
 	}
 
-	val, _ := hex.DecodeString(ck.Value)
-	hash := hash(val)
-
-	if usr, ok := m.db.GetUserFromSession(hash); ok {
+	if usr, ok := m.db.GetUserFromSession(ck.Value); ok {
 		return &usr, true
 	}
 
 	return nil, false
 }
 
-func (m *Miogo) newUserSession(email string, w http.ResponseWriter) {
+func (m *Miogo) NewUserSession(usr User, w http.ResponseWriter) {
 	randBytes := make([]byte, 16)
 	_, err := rand.Read(randBytes)
+	raw := hex.EncodeToString(randBytes)
 
 	if err != nil {
 		log.Panicf("Cannot read crypto secure bytes: %s\n", err)
 	}
 
-	m.db.SetUserSession(email, hash(randBytes))
-
-	cookie := http.Cookie{Name: "session", Value: hex.EncodeToString(randBytes)}
-	http.SetCookie(w, &cookie)
+	m.db.SetUserSession(usr, raw, hash(randBytes))
+	http.SetCookie(w, &http.Cookie{Name: "session", Value: raw})
 }

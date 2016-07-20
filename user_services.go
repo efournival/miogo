@@ -12,7 +12,7 @@ func (m *Miogo) Login(w http.ResponseWriter, r *http.Request, u *User) {
 
 	if usr, ok := m.db.GetUser(email); ok {
 		if err := bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(password)); err == nil {
-			m.newUserSession(email, w)
+			m.NewUserSession(usr, w)
 			w.Write([]byte(`{ "success": "true" }`))
 			return
 		}
@@ -22,7 +22,14 @@ func (m *Miogo) Login(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (m *Miogo) Logout(w http.ResponseWriter, r *http.Request, u *User) {
-	m.db.RemoveUserSession(u)
+	ck, err := r.Cookie("session")
+	var raw string
+
+	if err != nil {
+		raw = ck.Value
+	}
+
+	m.db.RemoveUserSession(u, raw)
 	http.SetCookie(w, &http.Cookie{Name: "session", Value: "", MaxAge: -1})
 	w.Write([]byte(`{ "success": "true" }`))
 }
