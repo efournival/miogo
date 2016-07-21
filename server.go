@@ -27,6 +27,7 @@ type Miogo struct {
 	foldersCache    *Cache
 	sessionsCache   *Cache
 	usersCache      *Cache
+	groupsCache     *Cache
 }
 
 func NewMiogo() *Miogo {
@@ -63,6 +64,7 @@ func NewMiogo() *Miogo {
 		&conf,
 		http.NewServeMux(),
 		time.Duration(conf.SessionDuration) * time.Minute,
+		NewCache(dur),
 		NewCache(dur),
 		NewCache(dur),
 		NewCache(dur),

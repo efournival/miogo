@@ -12,12 +12,29 @@ type Group struct {
 	Admins []User `json:"admins,omitempty"`
 }
 
+func (m *Miogo) FetchGroup(name string) (*Group, bool) {
+	if val, ok := m.groupsCache.Get(name); ok {
+		return val.(*Group), ok
+	}
+
+	query := db.C("groups").Find(bson.M{"_id": name})
+
+	if count, err := query.Count(); count > 0 && err == nil {
+		var group Group
+		query.One(&group)
+
+		m.groupsCache.Set(name, &group)
+
+		return &group, true
+	}
+
+	return nil, false
+}
+
 func (m *Miogo) NewGroup(w http.ResponseWriter, r *http.Request, u *User) {
 	name := strings.TrimSpace(r.Form["name"][0])
 
-	// TODO: cache groups
-
-	if count, err := db.C("groups").Find(bson.M{"_id": name}).Count(); count == 0 && err == nil {
+	if _, exists := m.FetchGroup(name); !exists {
 		db.C("groups").Insert(bson.M{"_id": name})
 		w.Write([]byte(`{ "success": "true" }`))
 		return
@@ -31,7 +48,7 @@ func (m *Miogo) RemoveGroup(w http.ResponseWriter, r *http.Request, u *User) {
 
 	// TODO: not working when user belongs to more than one group
 
-	if count, err := db.C("groups").Find(bson.M{"_id": name}).Count(); count > 0 && err == nil {
+	if _, exists := m.FetchGroup(name); exists {
 		db.C("users").UpdateAll(bson.M{"groups": name}, bson.M{"$pull": bson.M{"groups": name}})
 		// TODO: invalidate these...
 		db.C("groups").RemoveId(name)
