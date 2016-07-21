@@ -69,7 +69,7 @@ func (m *Miogo) Login(w http.ResponseWriter, r *http.Request, u *User) {
 	email := strings.TrimSpace(r.Form["email"][0])
 	password := strings.TrimSpace(r.Form["password"][0])
 
-	if usr, ok := m.GetUser(email); ok {
+	if usr, ok := m.FetchUser(email); ok {
 		if err := bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(password)); err == nil {
 			m.newUserSession(usr, w)
 			w.Write([]byte(`{ "success": "true" }`))
@@ -99,7 +99,7 @@ func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, u *User) {
 	password := strings.TrimSpace(r.Form["password"][0])
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
-	if _, exists := m.GetUser(email); exists {
+	if _, exists := m.FetchUser(email); exists {
 		w.Write([]byte(`{ "error": "User already exists" }`))
 		return
 	}
@@ -112,7 +112,7 @@ func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, u *User) {
 func (m *Miogo) RemoveUser(w http.ResponseWriter, r *http.Request, u *User) {
 	email := strings.TrimSpace(r.Form["email"][0])
 
-	if _, exists := m.GetUser(email); !exists {
+	if _, exists := m.FetchUser(email); !exists {
 		w.Write([]byte(`{ "error": "User does not exist" }`))
 		return
 	}
@@ -158,14 +158,19 @@ func (m *Miogo) GetUserFromRequest(r *http.Request) (*User, bool) {
 	return nil, false
 }
 
-func (m *Miogo) GetUser(email string) (*User, bool) {
-	// TODO: user cache
+func (m *Miogo) FetchUser(email string) (*User, bool) {
+	if val, ok := m.usersCache.Get(email); ok {
+		return val.(*User), ok
+	}
 
 	query := db.C("users").Find(bson.M{"email": email})
 
 	if count, err := query.Count(); count > 0 && err == nil {
 		var user User
 		query.One(&user)
+
+		m.usersCache.Set(email, &user)
+
 		return &user, true
 	}
 

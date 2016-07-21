@@ -33,6 +33,7 @@ func (m *Miogo) RemoveGroup(w http.ResponseWriter, r *http.Request, u *User) {
 
 	if count, err := db.C("groups").Find(bson.M{"_id": name}).Count(); count > 0 && err == nil {
 		db.C("users").UpdateAll(bson.M{"groups": name}, bson.M{"$pull": bson.M{"groups": name}})
+		// TODO: invalidate these...
 		db.C("groups").RemoveId(name)
 		w.Write([]byte(`{ "success": "true" }`))
 		return
@@ -48,6 +49,9 @@ func (m *Miogo) AddUserToGroup(w http.ResponseWriter, r *http.Request, u *User) 
 	//TODO: check if group and user exist
 
 	db.C("users").Update(bson.M{"email": user}, bson.M{"$addToSet": bson.M{"groups": group}})
+
+	m.usersCache.Invalidate(user)
+
 	w.Write([]byte(`{ "success": "true" }`))
 }
 
@@ -58,6 +62,9 @@ func (m *Miogo) RemoveUserFromGroup(w http.ResponseWriter, r *http.Request, u *U
 	//TODO: check if group and user exist
 
 	db.C("users").Update(bson.M{"email": user}, bson.M{"$pull": bson.M{"groups": group}})
+
+	m.usersCache.Invalidate(user)
+
 	w.Write([]byte(`{ "success": "true" }`))
 }
 
