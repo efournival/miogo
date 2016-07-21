@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/facebookgo/grace/gracehttp"
 	"net/http"
+
+	"github.com/facebookgo/grace/gracehttp"
 )
 
 func main() {

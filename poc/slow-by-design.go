@@ -2,8 +2,9 @@ package main
 
 import (
 	"net/http"
-	"golang.org/x/net/webdav"
 	"time"
+
+	"golang.org/x/net/webdav"
 )
 
 func main() {

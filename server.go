@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"time"
 
 	"github.com/BurntSushi/toml"
-	"gopkg.in/mgo.v2/bson"
 )
 
 type MiogoConfig struct {
@@ -20,38 +20,12 @@ type MiogoConfig struct {
 }
 
 type Miogo struct {
-	db   *MiogoDB
-	conf *MiogoConfig
-	mux  *http.ServeMux
-}
-
-type Right struct {
-	All    string        `bson:"all" json:"all,omitempty"`
-	Groups []EntityRight `bson:"groups" json:"groups,omitempty"`
-	Users  []EntityRight `bson:"users" json:"users,omitempty"`
-}
-
-type EntityRight struct {
-	Name   string `bson:"name" json:"name,omitempty"`
-	Rights string `bson:"rights" json:"rights,omitempty"`
-}
-
-type File struct {
-	Name   string        `bson:"name" json:"name"`
-	FileID bson.ObjectId `bson:"file_id" json:"-"`
-	Rights *Right        `bson:"rights,omitempty" json:"rights,omitempty"`
-}
-
-type Folder struct {
-	Path    string   `bson:"path" json:"path"`
-	Files   []File   `bson:"files" json:"files,omitempty"`
-	Folders []Folder `json:"folders,omitempty"`
-	Rights  *Right   `bson:"rights,omitempty" json:"rights,omitempty"`
-}
-
-type Group struct {
-	Id     string `bson:"_id,omitempty" json:"id"`
-	Admins []User `json:"admins,omitempty"`
+	conf            *MiogoConfig
+	mux             *http.ServeMux
+	sessionDuration time.Duration
+	filesCache      *Cache
+	foldersCache    *Cache
+	sessionsCache   *Cache
 }
 
 func NewMiogo() *Miogo {
@@ -80,7 +54,18 @@ func NewMiogo() *Miogo {
 
 	os.Setenv("TMPDIR", conf.TemporaryFolder)
 
-	miogo := Miogo{NewMiogoDB(conf.MongoDBHost, conf.CacheDuration, conf.SessionDuration, conf.AdminEmail, conf.AdminPassword), &conf, http.NewServeMux()}
+	InitDB(conf.MongoDBHost, conf.AdminEmail, conf.AdminPassword)
+
+	dur := time.Duration(conf.CacheDuration) * time.Minute
+
+	miogo := Miogo{
+		&conf,
+		http.NewServeMux(),
+		time.Duration(conf.SessionDuration) * time.Minute,
+		NewCache(dur),
+		NewCache(dur),
+		NewCache(dur),
+	}
 
 	miogo.RegisterService(&Service{
 		Handler:         miogo.GetFile,
@@ -127,12 +112,12 @@ func NewMiogo() *Miogo {
 
 	miogo.RegisterService(&Service{
 		Handler:         miogo.NewGroup,
-		MandatoryFields: []string{"group"},
+		MandatoryFields: []string{"name"},
 	})
 
 	miogo.RegisterService(&Service{
 		Handler:         miogo.RemoveGroup,
-		MandatoryFields: []string{"group"},
+		MandatoryFields: []string{"name"},
 	})
 
 	miogo.RegisterService(&Service{

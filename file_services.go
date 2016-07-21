@@ -6,16 +6,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"gopkg.in/mgo.v2/bson"
 )
 
 func (m *Miogo) GetFile(w http.ResponseWriter, r *http.Request, u *User) {
-	path := strings.TrimSpace(r.Form["path"][0])
+	path := formatD(r.Form["path"][0])
 
-	if folder, ok := m.db.GetFolderWithFile(path); ok {
-		err := m.db.GetFile(w, folder.Files[0].FileID)
+	if folder, ok := m.FetchFolderWithFile(path); ok {
+		err := m.GetGFSFile(w, folder.Files[0].FileID)
 
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -30,13 +29,9 @@ func (m *Miogo) GetFile(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (m *Miogo) GetFolder(w http.ResponseWriter, r *http.Request, u *User) {
-	path := strings.TrimRight(strings.TrimSpace(r.Form["path"][0]), "/")
+	path := formatD(r.Form["path"][0])
 
-	if len(path) == 0 {
-		path = "/"
-	}
-
-	if folder, ok := m.db.GetFolder(path); ok {
+	if folder, ok := m.FetchFolder(path); ok {
 		res, _ := json.Marshal(folder)
 		fmt.Fprint(w, string(res))
 		return
@@ -46,17 +41,21 @@ func (m *Miogo) GetFolder(w http.ResponseWriter, r *http.Request, u *User) {
 }
 
 func (m *Miogo) NewFolder(w http.ResponseWriter, r *http.Request, u *User) {
-	path := strings.TrimRight(strings.TrimSpace(r.Form["path"][0]), "/")
+	path := formatD(r.Form["path"][0])
 
-	if _, ok := m.db.GetFolder(path[:strings.LastIndex(path, "/")]); !ok {
+	if _, ok := m.FetchFolder(parentD(path)); !ok {
 		w.Write([]byte(`{ "error": "Bad folder name" }`))
 		return
 	}
 
-	if res := m.db.NewFolder(path); !res {
+	if _, exists := m.FetchFolder(path); exists {
 		w.Write([]byte(`{ "error": "Folder already exists" }`))
 		return
 	}
+
+	m.foldersCache.Invalidate(parentD(path))
+
+	db.C("folders").Insert(bson.M{"path": path})
 
 	w.Write([]byte(`{ "success": "true" }`))
 }
@@ -82,9 +81,9 @@ func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, u *User) {
 		if part.FormName() == "path" {
 			buf := new(bytes.Buffer)
 			buf.ReadFrom(part)
-			path = buf.String()
+			path = formatD(buf.String())
 		} else if part.FormName() == "file" {
-			id, name, err := m.db.CreateFile(part)
+			id, name, err := m.CreateGFSFile(part)
 
 			if err != nil {
 				w.Write([]byte(`{ "error": "Failure on our side" }`))
@@ -96,37 +95,13 @@ func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, u *User) {
 		}
 	}
 
-	if _, ok := m.db.GetFolder(path); ok {
+	if _, ok := m.FetchFolder(path); ok {
 		for id, name := range files {
-			m.db.PushFile(path, name, id)
+			m.PushFile(path, name, id)
 		}
 	} else {
 		// TODO: remove from GridFS
 		w.Write([]byte(`{ "error": "Wrong path" }`))
-		return
-	}
-
-	w.Write([]byte(`{ "success": "true" }`))
-}
-
-func (m *Miogo) SetResourceRights(w http.ResponseWriter, r *http.Request, u *User) {
-	var err error
-
-	rights := strings.TrimSpace(r.Form["rights"][0])
-	resource := strings.TrimSpace(r.Form["resource"][0])
-
-	if _, ok := r.Form["user"]; ok {
-		username := strings.TrimSpace(r.Form["user"][0])
-		err = m.db.SetResourceRights("users", rights, resource, username)
-	} else if _, ok := r.Form["group"]; ok {
-		groupname := strings.TrimSpace(r.Form["group"][0])
-		err = m.db.SetResourceRights("groups", rights, resource, groupname)
-	} else if _, ok := r.Form["all"]; ok {
-		err = m.db.SetResourceRights("all", rights, resource, "")
-	}
-
-	if err != nil {
-		w.Write([]byte(`{ "error": "Can't set rights" }`))
 		return
 	}
 

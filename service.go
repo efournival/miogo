@@ -53,7 +53,7 @@ func (m *Miogo) RegisterService(s *Service) {
 		var u *User
 
 		if s.Options^NoLoginCheck > 0 {
-			if u, ok = m.GetSessionUser(r); !ok {
+			if u, ok = m.GetUserFromRequest(r); !ok {
 				http.Error(w, "Not logged in", http.StatusForbidden)
 				return
 			}

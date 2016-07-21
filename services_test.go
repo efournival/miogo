@@ -232,9 +232,9 @@ func TestUser(t *testing.T) {
 }
 
 func TestGroup(t *testing.T) {
-	testPOST(t, "NewGroup", "group=miogo", `{ "success": "true" }`)
-	testPOST(t, "NewGroup", "group=test", `{ "success": "true" }`)
-	testPOST(t, "NewGroup", "group=miogo", `{ "error": "group already exists" }`)
+	testPOST(t, "NewGroup", "name=miogo", `{ "success": "true" }`)
+	testPOST(t, "NewGroup", "name=test", `{ "success": "true" }`)
+	testPOST(t, "NewGroup", "name=miogo", `{ "error": "Group already exists" }`)
 
 	// TODO : check if user exists before adding/removing them
 	testPOST(t, "AddUserToGroup", "group=miogo&user=test@miogo.tld", `{ "success": "true" }`)
@@ -243,7 +243,7 @@ func TestGroup(t *testing.T) {
 
 	testPOST(t, "AddUserToGroup", "group=test&user=test@miogo.tld", `{ "success": "true" }`)
 	testPOST(t, "AddUserToGroup", "group=test&user=test2@miogo.tld", `{ "success": "true" }`)
-	testPOST(t, "RemoveGroup", "group=test", `{ "success": "true" }`)
+	testPOST(t, "RemoveGroup", "name=test", `{ "success": "true" }`)
 
 	testPOST(t, "SetGroupAdmin", "group=miogo&user=test@miogo.tld", `{ "success": "true" }`)
 }
