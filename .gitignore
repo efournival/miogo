@@ -1,4 +1,5 @@
 miogo
 miogo.conf
+utility/benchmarker
 *.swp
 *.tmp
