@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/facebookgo/grace/gracehttp"
@@ -8,5 +9,5 @@ import (
 
 func main() {
 	miogo := NewMiogo()
-	gracehttp.Serve(&http.Server{Addr: ":8080", Handler: miogo.mux})
+	log.Fatal(gracehttp.Serve(&http.Server{Addr: ":8070", Handler: miogo.mux}))
 }
