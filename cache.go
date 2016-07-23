@@ -23,7 +23,9 @@ func NewCache(delay time.Duration) *Cache {
 }
 
 func (c *Cache) Get(key string) (interface{}, bool) {
+	c.Lock()
 	val, ok := c.Entries[key]
+	c.Unlock()
 
 	if ok {
 		return val.Value, ok
