@@ -57,7 +57,7 @@ func (m *Miogo) newUserSession(usr *User, w http.ResponseWriter) {
 	usr.Session.Hash = hash(randBytes)
 	usr.Session.Expiration = bson.Now().Add(m.sessionDuration).Unix()
 
-	db.C("users").Update(bson.M{"email": usr.Email}, bson.M{"$set": bson.M{"session": bson.M{"hash": usr.Session.Hash, "expiration": usr.Session.Expiration}}})
+	db.C("users").Update(bson.M{"email": usr.Email}, usr)
 
 	m.sessionsCache.Set(raw, usr)
 
@@ -127,7 +127,12 @@ func (m *Miogo) updateUserSession(usr *User, raw string) (*User, bool) {
 	}
 
 	usr.Session.Expiration = time.Now().Add(m.sessionDuration).Unix()
-	db.C("users").Update(bson.M{"session.hash": usr.Session.Hash}, bson.M{"session.expiration": usr.Session.Expiration})
+
+	// If time until session expiration is enough, don't annoy MongoDB
+	if time.Unix(usr.Session.Expiration, 0).Sub(time.Now()) < m.sessionDuration/4 {
+		db.C("users").Update(bson.M{"session.hash": usr.Session.Hash}, usr)
+	}
+
 	m.sessionsCache.Set(raw, usr)
 
 	return usr, true
