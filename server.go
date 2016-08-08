@@ -2,12 +2,12 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 	"reflect"
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/valyala/fasthttp"
 )
 
 type MiogoConfig struct {
@@ -21,13 +21,24 @@ type MiogoConfig struct {
 
 type Miogo struct {
 	conf            *MiogoConfig
-	mux             *http.ServeMux
+	services        map[string]fasthttp.RequestHandler
 	sessionDuration time.Duration
 	filesCache      *Cache
 	foldersCache    *Cache
 	sessionsCache   *Cache
 	usersCache      *Cache
 	groupsCache     *Cache
+}
+
+func (m *Miogo) GetHandler() fasthttp.RequestHandler {
+	return func(ctx *fasthttp.RequestCtx) {
+		if f, ok := m.services[string(ctx.Path())]; ok {
+			f(ctx)
+			return
+		}
+
+		ctx.Error("Wrong service name", fasthttp.StatusNotFound)
+	}
 }
 
 func NewMiogo() *Miogo {
@@ -62,7 +73,7 @@ func NewMiogo() *Miogo {
 
 	miogo := Miogo{
 		&conf,
-		http.NewServeMux(),
+		make(map[string]fasthttp.RequestHandler),
 		time.Duration(conf.SessionDuration) * time.Minute,
 		NewCache(dur),
 		NewCache(dur),
@@ -89,7 +100,6 @@ func NewMiogo() *Miogo {
 
 	miogo.RegisterService(&Service{
 		Handler: miogo.Upload,
-		Options: NoFormParsing,
 	})
 
 	miogo.RegisterService(&Service{
@@ -99,9 +109,7 @@ func NewMiogo() *Miogo {
 	})
 
 	miogo.RegisterService(&Service{
-		Handler:         miogo.Logout,
-		Options:         NoFormParsing,
-		MandatoryFields: []string{"path"},
+		Handler: miogo.Logout,
 	})
 
 	miogo.RegisterService(&Service{

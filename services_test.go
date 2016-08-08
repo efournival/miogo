@@ -8,26 +8,27 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/valyala/fasthttp"
 )
 
 var (
 	miogo   *Miogo
-	server  *httptest.Server
 	session string
 )
 
 func init() {
 	miogo = NewMiogo()
-	server = httptest.NewServer(miogo.mux)
+	server := &fasthttp.Server{Handler: miogo.GetHandler()}
+	go server.ListenAndServe(":8080")
 }
 
 func downloadAndHash(path string) string {
-	request, err := http.NewRequest("POST", server.URL+"/GetFile", strings.NewReader("path="+path))
+	request, err := http.NewRequest("POST", "http://localhost:8080/GetFile", strings.NewReader("path="+path))
 
 	if err != nil {
 		return ""
@@ -98,7 +99,7 @@ func upload(file, path, expected string) (bool, string) {
 		return false, err.Error()
 	}
 
-	request, err := http.NewRequest("POST", server.URL+"/Upload", body)
+	request, err := http.NewRequest("POST", "http://localhost:8080/Upload", body)
 
 	if err != nil {
 		return false, err.Error()
@@ -158,7 +159,7 @@ func testRequest(request *http.Request, expected string) (bool, string) {
 }
 
 func sendPOST(service, params, expected string) (bool, string) {
-	request, err := http.NewRequest("POST", server.URL+"/"+service, strings.NewReader(params))
+	request, err := http.NewRequest("POST", "http://localhost:8080/"+service, strings.NewReader(params))
 
 	if err != nil {
 		return false, err.Error()

@@ -1,8 +1,9 @@
 package main
 
 import (
-	"net/http"
 	"strings"
+
+	"github.com/valyala/fasthttp"
 
 	"gopkg.in/mgo.v2/bson"
 )
@@ -18,20 +19,21 @@ type EntityRight struct {
 	Rights string `bson:"rights" json:"rights,omitempty"`
 }
 
-func (m *Miogo) SetResourceRights(w http.ResponseWriter, r *http.Request, u *User) {
-	rights := strings.TrimSpace(r.Form["rights"][0])
-	resource := formatD(r.Form["resource"][0])
+func (m *Miogo) SetResourceRights(ctx *fasthttp.RequestCtx, u *User) {
+	rights := strings.TrimSpace(string(ctx.FormValue("rights")))
+	resource := formatD(string(ctx.FormValue("resource")))
+
 	var (
 		name, entityType string
 	)
 
-	if _, ok := r.Form["user"]; ok {
-		name = strings.TrimSpace(r.Form["user"][0])
+	if len(ctx.FormValue("user")) > 0 {
+		name = strings.TrimSpace(string(ctx.FormValue("user")))
 		entityType = "users"
-	} else if _, ok := r.Form["group"]; ok {
-		name = strings.TrimSpace(r.Form["group"][0])
+	} else if len(ctx.FormValue("group")) > 0 {
+		name = strings.TrimSpace(string(ctx.FormValue("group")))
 		entityType = "groups"
-	} else if _, ok := r.Form["all"]; ok {
+	} else {
 		entityType = "all"
 	}
 
@@ -49,7 +51,7 @@ func (m *Miogo) SetResourceRights(w http.ResponseWriter, r *http.Request, u *Use
 		}
 
 		if err != nil {
-			w.Write([]byte(`{ "error": "Cannot set rights" }`))
+			ctx.SetBodyString(`{ "error": "Cannot set folder rights" }`)
 			return
 		}
 
@@ -68,15 +70,15 @@ func (m *Miogo) SetResourceRights(w http.ResponseWriter, r *http.Request, u *Use
 		}
 
 		if err != nil {
-			w.Write([]byte(`{ "error": "Cannot set rights" }`))
+			ctx.SetBodyString(`{ "error": "Cannot set file rights" }`)
 			return
 		}
 
 		m.foldersCache.Invalidate(dir)
 	} else {
-		w.Write([]byte(`{ "error": "Resource does not exist" }`))
+		ctx.SetBodyString(`{ "error": "Resource does not exist" }`)
 		return
 	}
 
-	w.Write([]byte(`{ "success": "true" }`))
+	ctx.SetBodyString(`{ "success": "true" }`)
 }

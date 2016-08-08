@@ -2,12 +2,11 @@ package main
 
 import (
 	"log"
-	"net/http"
 
-	"github.com/facebookgo/grace/gracehttp"
+	"github.com/valyala/fasthttp"
 )
 
 func main() {
 	miogo := NewMiogo()
-	log.Fatal(gracehttp.Serve(&http.Server{Addr: ":8070", Handler: miogo.mux}))
+	log.Fatal(fasthttp.ListenAndServe(":8080", miogo.GetHandler()))
 }

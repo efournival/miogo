@@ -1,9 +1,9 @@
 package main
 
 import (
-	"net/http"
 	"strings"
 
+	"github.com/valyala/fasthttp"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -31,37 +31,38 @@ func (m *Miogo) FetchGroup(name string) (*Group, bool) {
 	return nil, false
 }
 
-func (m *Miogo) NewGroup(w http.ResponseWriter, r *http.Request, u *User) {
-	name := strings.TrimSpace(r.Form["name"][0])
+func (m *Miogo) NewGroup(ctx *fasthttp.RequestCtx, u *User) {
+	name := strings.TrimSpace(string(ctx.FormValue("name")))
 
-	if _, exists := m.FetchGroup(name); !exists {
-		db.C("groups").Insert(bson.M{"_id": name})
-		w.Write([]byte(`{ "success": "true" }`))
+	if _, exists := m.FetchGroup(name); exists {
+		ctx.SetBodyString(`{ "error": "Group already exists" }`)
 		return
 	}
 
-	w.Write([]byte(`{ "error": "Group already exists" }`))
+	db.C("groups").Insert(bson.M{"_id": name})
+	ctx.SetBodyString(`{ "success": "true" }`)
 }
 
-func (m *Miogo) RemoveGroup(w http.ResponseWriter, r *http.Request, u *User) {
-	name := strings.TrimSpace(r.Form["name"][0])
+func (m *Miogo) RemoveGroup(ctx *fasthttp.RequestCtx, u *User) {
+	name := strings.TrimSpace(string(ctx.FormValue("name")))
 
 	// TODO: not working when user belongs to more than one group
 
-	if _, exists := m.FetchGroup(name); exists {
-		db.C("users").UpdateAll(bson.M{"groups": name}, bson.M{"$pull": bson.M{"groups": name}})
-		// TODO: invalidate these...
-		db.C("groups").RemoveId(name)
-		w.Write([]byte(`{ "success": "true" }`))
+	if _, exists := m.FetchGroup(name); !exists {
+		ctx.SetBodyString(`{ "error": "Group does not exist" }`)
 		return
 	}
 
-	w.Write([]byte(`{ "error": "Group does not exist" }`))
+	db.C("users").UpdateAll(bson.M{"groups": name}, bson.M{"$pull": bson.M{"groups": name}})
+	// TODO: invalidate these...
+	db.C("groups").RemoveId(name)
+	ctx.SetBodyString(`{ "success": "true" }`)
 }
 
-func (m *Miogo) AddUserToGroup(w http.ResponseWriter, r *http.Request, u *User) {
-	user := strings.TrimSpace(r.Form["user"][0])
-	group := strings.TrimSpace(r.Form["group"][0])
+func (m *Miogo) AddUserToGroup(ctx *fasthttp.RequestCtx, u *User) {
+	// TODO: handle multiple users
+	user := strings.TrimSpace(string(ctx.FormValue("user")))
+	group := strings.TrimSpace(string(ctx.FormValue("group")))
 
 	//TODO: check if group and user exist
 
@@ -69,12 +70,12 @@ func (m *Miogo) AddUserToGroup(w http.ResponseWriter, r *http.Request, u *User) 
 
 	m.usersCache.Invalidate(user)
 
-	w.Write([]byte(`{ "success": "true" }`))
+	ctx.SetBodyString(`{ "success": "true" }`)
 }
 
-func (m *Miogo) RemoveUserFromGroup(w http.ResponseWriter, r *http.Request, u *User) {
-	user := strings.TrimSpace(r.Form["user"][0])
-	group := strings.TrimSpace(r.Form["group"][0])
+func (m *Miogo) RemoveUserFromGroup(ctx *fasthttp.RequestCtx, u *User) {
+	user := strings.TrimSpace(string(ctx.FormValue("user")))
+	group := strings.TrimSpace(string(ctx.FormValue("group")))
 
 	//TODO: check if group and user exist
 
@@ -82,15 +83,15 @@ func (m *Miogo) RemoveUserFromGroup(w http.ResponseWriter, r *http.Request, u *U
 
 	m.usersCache.Invalidate(user)
 
-	w.Write([]byte(`{ "success": "true" }`))
+	ctx.SetBodyString(`{ "success": "true" }`)
 }
 
-func (m *Miogo) SetGroupAdmin(w http.ResponseWriter, r *http.Request, u *User) {
-	user := strings.TrimSpace(r.Form["user"][0])
-	group := strings.TrimSpace(r.Form["group"][0])
+func (m *Miogo) SetGroupAdmin(ctx *fasthttp.RequestCtx, u *User) {
+	user := strings.TrimSpace(string(ctx.FormValue("user")))
+	group := strings.TrimSpace(string(ctx.FormValue("group")))
 
 	//TODO: check if group and user exist
 
 	db.C("groups").Update(bson.M{"_id": group}, bson.M{"$addToSet": bson.M{"admins": user}})
-	w.Write([]byte(`{ "success": "true" }`))
+	ctx.SetBodyString(`{ "success": "true" }`)
 }

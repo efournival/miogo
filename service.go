@@ -1,22 +1,21 @@
 package main
 
 import (
-	"net/http"
-	"net/url"
 	"reflect"
 	"runtime"
 	"strings"
+
+	"github.com/valyala/fasthttp"
 )
 
 type ServiceOption int
 
 const (
 	NoJSON ServiceOption = (1 << iota)
-	NoFormParsing
 	NoLoginCheck
 )
 
-type ServiceFunc func(http.ResponseWriter, *http.Request, *User)
+type ServiceFunc func(*fasthttp.RequestCtx, *User)
 
 type Service struct {
 	Name            string
@@ -29,61 +28,54 @@ type Service struct {
 func (m *Miogo) RegisterService(s *Service) {
 	if s.Name == "" {
 		s.Name = runtime.FuncForPC(reflect.ValueOf(s.Handler).Pointer()).Name()
-		pos := strings.LastIndex(s.Name, ".")
-		s.Name = strings.Split(s.Name[pos+1:], "-")[0]
+		s.Name = strings.Split(s.Name[strings.LastIndex(s.Name, ".")+1:], "-")[0]
 	}
 
-	m.mux.HandleFunc("/"+s.Name, func(w http.ResponseWriter, r *http.Request) {
+	m.services["/"+s.Name] = func(ctx *fasthttp.RequestCtx) {
 		var ok bool
 
-		if r.Method != "POST" {
-			http.Error(w, "Please send POST requests", http.StatusBadRequest)
+		if !ctx.Request.Header.IsPost() {
+			ctx.Error("Please send POST requests", fasthttp.StatusBadRequest)
 			return
 		}
 
-		if s.Options^NoFormParsing > 0 {
-			r.ParseForm()
-
-			if ok = s.Validate(r.Form); !ok {
-				http.Error(w, "Wrong arguments", http.StatusBadRequest)
-				return
-			}
+		if ok = s.Validate(ctx.PostArgs()); !ok {
+			ctx.Error("Wrong arguments", fasthttp.StatusBadRequest)
+			return
 		}
 
 		var u *User
 
 		if s.Options^NoLoginCheck > 0 {
-			if u, ok = m.GetUserFromRequest(r); !ok {
-				http.Error(w, "Not logged in", http.StatusForbidden)
+			if u, ok = m.GetUserFromRequest(ctx); !ok {
+				ctx.Error("Not logged in", fasthttp.StatusForbidden)
 				return
 			}
 		}
 
 		if s.Options^NoJSON > 0 {
-			w.Header().Set("Content-Type", "application/json")
+			ctx.Response.Header.Add("Content-Type", "application/json")
 		}
 
-		s.Handler(w, r, u)
-	})
+		s.Handler(ctx, u)
+	}
 }
 
-func (s *Service) Validate(f url.Values) bool {
+func (s *Service) Validate(a *fasthttp.Args) bool {
 	for _, v := range s.MandatoryFields {
-		if _, ok := f[v]; !ok {
+		if !a.Has(v) {
 			return false
 		}
 	}
 
 	if len(s.AtLeastOneField) > 0 {
-		good := false
-
 		for _, v := range s.AtLeastOneField {
-			if _, ok := f[v]; !ok {
-				good = true
+			if a.Has(v) {
+				return true
 			}
 		}
 
-		return good
+		return false
 	}
 
 	return true

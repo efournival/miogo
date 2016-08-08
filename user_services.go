@@ -5,9 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"log"
-	"net/http"
 	"strings"
 	"time"
+
+	"github.com/valyala/fasthttp"
 
 	"gopkg.in/mgo.v2/bson"
 
@@ -44,7 +45,7 @@ func hash(val []byte) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func (m *Miogo) newUserSession(usr *User, w http.ResponseWriter) {
+func (m *Miogo) newUserSession(usr *User, ctx *fasthttp.RequestCtx) {
 	randBytes := make([]byte, 16)
 	_, err := rand.Read(randBytes)
 
@@ -62,63 +63,63 @@ func (m *Miogo) newUserSession(usr *User, w http.ResponseWriter) {
 	m.sessionsCache.Set(raw, usr)
 
 	// The cookie will have a "session" duration on the client side (until the browser is closed)
-	http.SetCookie(w, &http.Cookie{Name: "session", Value: raw})
+	cookie := fasthttp.AcquireCookie()
+	cookie.SetHTTPOnly(true)
+	cookie.SetKey("session")
+	cookie.SetValue(raw)
+	ctx.Response.Header.SetCookie(cookie)
+	fasthttp.ReleaseCookie(cookie)
 }
 
-func (m *Miogo) Login(w http.ResponseWriter, r *http.Request, u *User) {
-	email := strings.TrimSpace(r.Form["email"][0])
-	password := strings.TrimSpace(r.Form["password"][0])
-
-	if usr, ok := m.FetchUser(email); ok {
-		if err := bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(password)); err == nil {
-			m.newUserSession(usr, w)
-			w.Write([]byte(`{ "success": "true" }`))
+func (m *Miogo) Login(ctx *fasthttp.RequestCtx, u *User) {
+	if usr, ok := m.FetchUser(strings.TrimSpace(string(ctx.FormValue("email")))); ok {
+		if err := bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(ctx.FormValue("password"))); err == nil {
+			m.newUserSession(usr, ctx)
+			ctx.SetBodyString(`{ "success": "true" }`)
 			return
 		}
 	}
 
-	w.Write([]byte(`{ "success": "false" }`))
+	ctx.SetBodyString(`{ "success": "false" }`)
 }
 
-func (m *Miogo) Logout(w http.ResponseWriter, r *http.Request, u *User) {
-	ck, err := r.Cookie("session")
+func (m *Miogo) Logout(ctx *fasthttp.RequestCtx, u *User) {
+	raw := string(ctx.Request.Header.Cookie("session"))
 
-	if err != nil {
-		m.sessionsCache.Invalidate(ck.Value)
+	if raw == u.Session.Hash {
+		m.sessionsCache.Invalidate(raw)
+		db.C("users").Update(bson.M{"session.hash": u.Session.Hash}, bson.M{"$unset": "session"})
 	}
 
-	db.C("users").Update(bson.M{"session.hash": u.Session.Hash}, bson.M{"$unset": "session"})
+	ctx.Response.Header.DelClientCookie("session")
 
-	http.SetCookie(w, &http.Cookie{Name: "session", Value: "", MaxAge: -1})
-
-	w.Write([]byte(`{ "success": "true" }`))
+	ctx.SetBodyString(`{ "success": "true" }`)
 }
 
-func (m *Miogo) NewUser(w http.ResponseWriter, r *http.Request, u *User) {
-	email := strings.TrimSpace(r.Form["email"][0])
-	password := strings.TrimSpace(r.Form["password"][0])
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+func (m *Miogo) NewUser(ctx *fasthttp.RequestCtx, u *User) {
+	email := string(ctx.FormValue("email"))
+	hashedPassword, _ := bcrypt.GenerateFromPassword(ctx.FormValue("password"), bcrypt.DefaultCost)
 
 	if _, exists := m.FetchUser(email); exists {
-		w.Write([]byte(`{ "error": "User already exists" }`))
+		ctx.SetBodyString(`{ "error": "User already exists" }`)
 		return
 	}
 
 	db.C("users").Insert(bson.M{"email": email, "password": string(hashedPassword)})
 
-	w.Write([]byte(`{ "success": "true" }`))
+	ctx.SetBodyString(`{ "success": "true" }`)
 }
 
-func (m *Miogo) RemoveUser(w http.ResponseWriter, r *http.Request, u *User) {
-	email := strings.TrimSpace(r.Form["email"][0])
+func (m *Miogo) RemoveUser(ctx *fasthttp.RequestCtx, u *User) {
+	email := string(ctx.FormValue("email"))
 
 	if _, exists := m.FetchUser(email); !exists {
-		w.Write([]byte(`{ "error": "User does not exist" }`))
+		ctx.SetBodyString(`{ "error": "User does not exist" }`)
 		return
 	}
 
 	db.C("users").Remove(bson.M{"email": email})
-	w.Write([]byte(`{ "success": "true" }`))
+	ctx.SetBodyString(`{ "success": "true" }`)
 }
 
 func (m *Miogo) updateUserSession(usr *User, raw string) (*User, bool) {
@@ -138,14 +139,8 @@ func (m *Miogo) updateUserSession(usr *User, raw string) (*User, bool) {
 	return usr, true
 }
 
-func (m *Miogo) GetUserFromRequest(r *http.Request) (*User, bool) {
-	ck, err := r.Cookie("session")
-
-	if err != nil {
-		return nil, false
-	}
-
-	raw := ck.Value
+func (m *Miogo) GetUserFromRequest(ctx *fasthttp.RequestCtx) (*User, bool) {
+	raw := string(ctx.Request.Header.Cookie("session"))
 
 	if val, ok := m.sessionsCache.Get(raw); ok {
 		return m.updateUserSession(val.(*User), raw)

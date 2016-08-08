@@ -1,55 +1,56 @@
 package main
 
 import (
-	"bytes"
+	"bufio"
 	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
+	"strings"
 
+	"github.com/valyala/fasthttp"
 	"gopkg.in/mgo.v2/bson"
 )
 
-func (m *Miogo) GetFile(w http.ResponseWriter, r *http.Request, u *User) {
-	path := formatD(r.Form["path"][0])
+func (m *Miogo) GetFile(ctx *fasthttp.RequestCtx, u *User) {
+	path := formatD(string(ctx.FormValue("path")))
 
 	if folder, ok := m.FetchFolderWithFile(path); ok {
-		err := m.GetGFSFile(w, folder.Files[0].FileID)
+		ctx.SetBodyStreamWriter(func(w *bufio.Writer) {
+			err := m.GetGFSFile(w, folder.Files[0].FileID)
 
-		if err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{ "error": "Server error" }`))
-		}
+			if err != nil {
+				ctx.Response.Header.Add("Content-Type", "application/json")
+				w.WriteString(`{ "error": "Server error" }`)
+			}
+		})
 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{ "error": "File not found" }`))
+	ctx.Response.Header.Add("Content-Type", "application/json")
+	ctx.SetBodyString(`{ "error": "File not found" }`)
 }
 
-func (m *Miogo) GetFolder(w http.ResponseWriter, r *http.Request, u *User) {
-	path := formatD(r.Form["path"][0])
+func (m *Miogo) GetFolder(ctx *fasthttp.RequestCtx, u *User) {
+	path := formatD(string(ctx.FormValue("path")))
 
 	if folder, ok := m.FetchFolder(path); ok {
 		res, _ := json.Marshal(folder)
-		fmt.Fprint(w, string(res))
+		ctx.SetBody(res)
 		return
 	}
 
-	w.Write([]byte(`{ "error": "Folder does not exist" }`))
+	ctx.SetBodyString(`{ "error": "Folder does not exist" }`)
 }
 
-func (m *Miogo) NewFolder(w http.ResponseWriter, r *http.Request, u *User) {
-	path := formatD(r.Form["path"][0])
+func (m *Miogo) NewFolder(ctx *fasthttp.RequestCtx, u *User) {
+	path := formatD(string(ctx.FormValue("path")))
 
 	if _, ok := m.FetchFolder(parentD(path)); !ok {
-		w.Write([]byte(`{ "error": "Bad folder name" }`))
+		ctx.SetBodyString(`{ "error": "Bad folder name" }`)
 		return
 	}
 
 	if _, exists := m.FetchFolder(path); exists {
-		w.Write([]byte(`{ "error": "Folder already exists" }`))
+		ctx.SetBodyString(`{ "error": "Folder already exists" }`)
 		return
 	}
 
@@ -57,53 +58,46 @@ func (m *Miogo) NewFolder(w http.ResponseWriter, r *http.Request, u *User) {
 
 	db.C("folders").Insert(bson.M{"path": path})
 
-	w.Write([]byte(`{ "success": "true" }`))
+	ctx.SetBodyString(`{ "success": "true" }`)
 }
 
-func (m *Miogo) Upload(w http.ResponseWriter, r *http.Request, u *User) {
-	reader, err := r.MultipartReader()
+func (m *Miogo) Upload(ctx *fasthttp.RequestCtx, u *User) {
+	form, err := ctx.MultipartForm()
 
 	if err != nil {
-		w.Write([]byte(`{ "error": "Bad request" }`))
+		ctx.SetBodyString(`{ "error": "Bad request" }`)
 		return
 	}
 
-	files := make(map[bson.ObjectId]string)
-	path := "/"
+	var path string
 
-	for {
-		part, err := reader.NextPart()
+	if val, ok := form.Value["path"]; ok {
+		path = strings.TrimSpace(val[0])
 
-		if err == io.EOF {
-			break
-		}
-
-		if part.FormName() == "path" {
-			buf := new(bytes.Buffer)
-			buf.ReadFrom(part)
-			path = formatD(buf.String())
-		} else if part.FormName() == "file" {
-			id, name, err := m.CreateGFSFile(part)
-
-			if err != nil {
-				w.Write([]byte(`{ "error": "Failure on our side" }`))
-				// TODO: remove from GridFS
-				return
-			}
-
-			files[id] = name
+		if _, exists := m.FetchFolder(path); !exists {
+			ctx.SetBodyString(`{ "error": "Wrong path" }`)
+			return
 		}
 	}
 
-	if _, ok := m.FetchFolder(path); ok {
-		for id, name := range files {
-			m.PushFile(path, name, id)
+	for _, header := range form.File["file"] {
+		file, err := header.Open()
+
+		if err != nil {
+			ctx.SetBodyString(`{ "error": "Bad file header" }`)
+			return
 		}
-	} else {
-		// TODO: remove from GridFS
-		w.Write([]byte(`{ "error": "Wrong path" }`))
-		return
+
+		id, err := m.CreateGFSFile(header.Filename, file)
+
+		if err != nil {
+			ctx.SetBodyString(`{ "error": "Failure on our side" }`)
+			// TODO: remove from GridFS
+			return
+		}
+
+		m.PushFile(path, header.Filename, id)
 	}
 
-	w.Write([]byte(`{ "success": "true" }`))
+	ctx.SetBodyString(`{ "success": "true" }`)
 }

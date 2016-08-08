@@ -20,23 +20,23 @@ func (m *Miogo) PushFile(path, filename string, id bson.ObjectId) bool {
 	return db.C("folders").Update(bson.M{"path": path}, bson.M{"$push": bson.M{"files": bson.M{"name": filename, "file_id": id}}}) == nil
 }
 
-func (m *Miogo) CreateGFSFile(part *multipart.Part) (bson.ObjectId, string, error) {
-	file, err := db.GridFS("fs").Create(part.FileName())
+func (m *Miogo) CreateGFSFile(name string, file multipart.File) (bson.ObjectId, error) {
+	gf, err := db.GridFS("fs").Create(name)
 
 	if err != nil {
 		log.Printf("Cannot create a GridFS file: %s\n", err)
-		return bson.NewObjectId(), "", err
+		return bson.NewObjectId(), err
 	}
 
-	defer file.Close()
+	defer gf.Close()
 
-	_, err = io.Copy(file, part)
+	_, err = io.Copy(gf, file)
 
 	if err != nil {
 		log.Printf("Cannot copy to GridFS: %s\n", err)
 	}
 
-	return file.Id().(bson.ObjectId), part.FileName(), err
+	return gf.Id().(bson.ObjectId), err
 }
 
 func (m *Miogo) GetGFSFile(destination io.Writer, id bson.ObjectId) error {
