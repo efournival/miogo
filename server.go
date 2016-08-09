@@ -14,7 +14,6 @@ type MiogoConfig struct {
 	MongoDBHost     string
 	TemporaryFolder string
 	SessionDuration int
-	CacheDuration   int
 	AdminEmail      string
 	AdminPassword   string
 }
@@ -23,8 +22,8 @@ type Miogo struct {
 	conf            *MiogoConfig
 	services        map[string]fasthttp.RequestHandler
 	sessionDuration time.Duration
-	filesCache      *Cache
 	foldersCache    *Cache
+	filesCache      *Cache
 	sessionsCache   *Cache
 	usersCache      *Cache
 	groupsCache     *Cache
@@ -69,22 +68,20 @@ func NewMiogo() *Miogo {
 
 	InitDB(conf.MongoDBHost, conf.AdminEmail, conf.AdminPassword)
 
-	dur := time.Duration(conf.CacheDuration) * time.Minute
-
 	miogo := Miogo{
 		&conf,
 		make(map[string]fasthttp.RequestHandler),
 		time.Duration(conf.SessionDuration) * time.Minute,
-		NewCache(dur),
-		NewCache(dur),
-		NewCache(dur),
-		NewCache(dur),
-		NewCache(dur),
+		NewCache(0),
+		NewCache(64 >> 20), // 64 megabytes
+		NewCache(0),
+		NewCache(0),
+		NewCache(0),
 	}
 
 	miogo.RegisterService(&Service{
 		Handler:         miogo.GetFile,
-		Options:         NoJSON,
+		Options:         NoJSON | NoLoginCheck,
 		MandatoryFields: []string{"path"},
 	})
 

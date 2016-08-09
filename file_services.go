@@ -12,21 +12,17 @@ import (
 func (m *Miogo) GetFile(ctx *fasthttp.RequestCtx, u *User) {
 	path := formatD(string(ctx.FormValue("path")))
 
-	if folder, ok := m.FetchFolderWithFile(path); ok {
-		ctx.SetBodyStreamWriter(func(w *bufio.Writer) {
-			err := m.GetGFSFile(w, folder.Files[0].FileID)
+	ctx.SetBodyStreamWriter(func(w *bufio.Writer) {
+		if err := m.FetchFileContent(path, w); err != nil {
+			ctx.Response.Header.Add("Content-Type", "application/json")
 
-			if err != nil {
-				ctx.Response.Header.Add("Content-Type", "application/json")
+			if err.Error() == "File not found" {
+				w.WriteString(`{ "error": "File not found" }`)
+			} else {
 				w.WriteString(`{ "error": "Server error" }`)
 			}
-		})
-
-		return
-	}
-
-	ctx.Response.Header.Add("Content-Type", "application/json")
-	ctx.SetBodyString(`{ "error": "File not found" }`)
+		}
+	})
 }
 
 func (m *Miogo) GetFolder(ctx *fasthttp.RequestCtx, u *User) {

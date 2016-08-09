@@ -56,24 +56,3 @@ func (m *Miogo) FetchFolder(path string) (*Folder, bool) {
 
 	return nil, false
 }
-
-func (m *Miogo) FetchFolderWithFile(path string) (*Folder, bool) {
-	if val, ok := m.filesCache.Get(path); ok {
-		return val.(*Folder), ok
-	}
-
-	dir, file := formatF(path)
-
-	query := db.C("folders").Find(bson.M{"path": dir, "files.name": file}).Select(bson.M{"files": bson.M{"$elemMatch": bson.M{"name": file}}})
-
-	if count, err := query.Count(); count > 0 && err == nil {
-		var folder Folder
-		query.One(&folder)
-
-		m.filesCache.Set(path, &folder)
-
-		return &folder, true
-	}
-
-	return nil, false
-}

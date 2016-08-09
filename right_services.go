@@ -56,7 +56,7 @@ func (m *Miogo) SetResourceRights(ctx *fasthttp.RequestCtx, u *User) {
 		}
 
 		m.foldersCache.InvalidateStartWith(resource)
-	} else if _, ok := m.FetchFolderWithFile(resource); ok {
+	} else if m.FileExists(resource) {
 		dir, file := formatF(resource)
 
 		if entityType == "all" {
