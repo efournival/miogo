@@ -46,14 +46,14 @@ func (m *Miogo) RegisterService(s *Service) {
 
 		var u *User
 
-		if s.Options^NoLoginCheck > 0 {
+		if s.Options&NoLoginCheck == 0 {
 			if u, ok = m.GetUserFromRequest(ctx); !ok {
 				ctx.Error("Not logged in", fasthttp.StatusForbidden)
 				return
 			}
 		}
 
-		if s.Options^NoJSON > 0 {
+		if s.Options&NoJSON == 0 {
 			ctx.Response.Header.Add("Content-Type", "application/json")
 		}
 
