@@ -215,7 +215,6 @@ func TestNewFolder(t *testing.T) {
 func TestUpload(t *testing.T) {
 	testUpload(t, "README.md", "/test", `{ "success": "true" }`)
 	// TODO: test multiple files upload
-	// TODO: check file(s) have been removed from DB if upload failed
 	testUpload(t, "main.go", "/test/a/b", `{ "error": "Wrong path" }`)
 }
 

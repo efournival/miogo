@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	"strings"
 
 	"github.com/valyala/fasthttp"
 	"gopkg.in/mgo.v2/bson"
@@ -65,16 +64,14 @@ func (m *Miogo) Upload(ctx *fasthttp.RequestCtx, u *User) {
 		return
 	}
 
-	var path string
+	path := formatD(form.Value["path"][0])
 
-	if val, ok := form.Value["path"]; ok {
-		path = strings.TrimSpace(val[0])
-
-		if _, exists := m.FetchFolder(path); !exists {
-			ctx.SetBodyString(`{ "error": "Wrong path" }`)
-			return
-		}
+	if _, exists := m.FetchFolder(path); !exists {
+		ctx.SetBodyString(`{ "error": "Wrong path" }`)
+		return
 	}
+
+	fb := NewFilesBulk(path)
 
 	for _, header := range form.File["file"] {
 		file, err := header.Open()
@@ -87,13 +84,14 @@ func (m *Miogo) Upload(ctx *fasthttp.RequestCtx, u *User) {
 		id, err := m.CreateGFSFile(header.Filename, file)
 
 		if err != nil {
+			fb.Revert()
 			ctx.SetBodyString(`{ "error": "Failure on our side" }`)
-			// TODO: remove from GridFS
 			return
 		}
 
-		m.PushFile(path, header.Filename, id)
+		fb.AddFile(id, header.Filename)
 	}
 
+	m.PushFilesBulk(fb)
 	ctx.SetBodyString(`{ "success": "true" }`)
 }
