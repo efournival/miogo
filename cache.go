@@ -41,10 +41,11 @@ func NewCache(ml int64) *Cache {
 }
 
 func (c *Cache) Get(key string) (interface{}, bool) {
+	var ret interface{} = nil
+
 	c.Lock()
 
 	val, ok := c.Entries[key]
-	var ret interface{} = nil
 
 	if ok {
 		val.use++
@@ -70,9 +71,13 @@ func (c *Cache) Set(key string, val interface{}) {
 	c.Unlock()
 }
 
-func (c *Cache) Invalidate(key string) {
+func (c *Cache) Invalidate(keys ...string) {
 	c.Lock()
-	delete(c.Entries, key)
+
+	for _, key := range keys {
+		delete(c.Entries, key)
+	}
+
 	c.Unlock()
 }
 

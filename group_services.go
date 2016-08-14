@@ -46,16 +46,27 @@ func (m *Miogo) NewGroup(ctx *fasthttp.RequestCtx, u *User) {
 func (m *Miogo) RemoveGroup(ctx *fasthttp.RequestCtx, u *User) {
 	name := strings.TrimSpace(string(ctx.FormValue("name")))
 
-	// TODO: not working when user belongs to more than one group
-
 	if _, exists := m.FetchGroup(name); !exists {
 		ctx.SetBodyString(`{ "error": "Group does not exist" }`)
 		return
 	}
 
-	db.C("users").UpdateAll(bson.M{"groups": name}, bson.M{"$pull": bson.M{"groups": name}})
-	// TODO: invalidate these...
+	// Store users belonging to the group
+	var users []User
+	db.C("users").Find(bson.M{"groups": bson.M{"$in": name}}).All(&users)
+
+	db.C("users").Update(bson.M{"groups": bson.M{"$in": name}}, bson.M{"$pull": bson.M{"groups": name}})
+
+	// Invalidate users by email
+	var ukeys []string
+	for _, user := range users {
+		ukeys = append(ukeys, user.Email)
+	}
+	m.usersCache.Invalidate(ukeys...)
+
 	db.C("groups").RemoveId(name)
+	m.groupsCache.Invalidate(name)
+
 	ctx.SetBodyString(`{ "success": "true" }`)
 }
 
