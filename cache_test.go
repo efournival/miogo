@@ -87,3 +87,20 @@ func TestInvalidationStartingWith(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkCacheSet(b *testing.B) {
+	c := NewCache(0)
+
+	for n := 0; n < b.N; n++ {
+		c.Set("test", nil)
+	}
+}
+
+func BenchmarkCacheGet(b *testing.B) {
+	c := NewCache(0)
+	c.Set("test", nil)
+
+	for n := 0; n < b.N; n++ {
+		c.Get("test")
+	}
+}
