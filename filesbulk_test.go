@@ -28,8 +28,12 @@ func TestFilesBulkPush(t *testing.T) {
 
 	miogo.PushFilesBulk(fb)
 
-	if !(miogo.FileExists(PATH+FILE1) && miogo.FileExists(PATH+FILE2)) {
-		t.Fatal("Files bulk push failed")
+	if _, ok := miogo.FetchFile(PATH + FILE1); !ok {
+		t.Fatal("Files bulk push failed (cannot fetch file 1)")
+	}
+
+	if _, ok := miogo.FetchFile(PATH + FILE2); !ok {
+		t.Fatal("Files bulk push failed (cannot fetch file 2)")
 	}
 
 	miogo.RemoveFile(PATH + FILE1)
@@ -45,8 +49,12 @@ func TestFilesBulkRevert(t *testing.T) {
 	fb.AddFile(id2, FILE2)
 	fb.Revert()
 
-	if miogo.FileExists(PATH+FILE1) || miogo.FileExists(PATH+FILE2) {
-		t.Fatal("Files bulk revert failed")
+	if _, ok := miogo.FetchFile(PATH + FILE1); ok {
+		t.Fatal("Files bulk revert failed (can fetch file 1)")
+	}
+
+	if _, ok := miogo.FetchFile(PATH + FILE2); ok {
+		t.Fatal("Files bulk revert failed (can fetch file 2)")
 	}
 
 	if _, err := db.GridFS("fs").OpenId(id1); err == nil {

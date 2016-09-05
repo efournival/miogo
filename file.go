@@ -66,10 +66,11 @@ func (m *Miogo) CreateGFSFile(name string, file multipart.File) (bson.ObjectId, 
 	return gf.Id().(bson.ObjectId), err
 }
 
-func (m *Miogo) FetchFileContent(path string, destination io.Writer) error {
+func (m *Miogo) FetchFile(path string) (*File, bool) {
+	path = formatD(path)
+
 	if val, ok := m.filesCache.Get(path); ok {
-		_, err := destination.Write(val.([]byte))
-		return err
+		return val.(*File), true
 	}
 
 	d, f := formatF(path)
@@ -80,29 +81,48 @@ func (m *Miogo) FetchFileContent(path string, destination io.Writer) error {
 		var folder Folder
 		query.One(&folder)
 
-		file, err := db.GridFS("fs").OpenId(folder.Files[0].FileID)
+		m.filesCache.Set(path, &folder.Files[0])
 
-		if err != nil {
-			log.Printf("Cannot get file from GridFS (%s): %s\n", folder.Files[0].FileID.String(), err)
+		return &folder.Files[0], true
+	}
+
+	return nil, false
+}
+
+func (m *Miogo) FetchFileContent(path string, destination io.Writer, user *User) error {
+	if file, ok := m.FetchFile(path); ok {
+		if GetRightType(user, file.Rights) < AllowedToRead {
+			return errors.New("Access denied")
+		}
+
+		if val, ok := m.filesContentCache.Get(path); ok {
+			_, err := destination.Write(val.([]byte))
 			return err
 		}
 
-		defer file.Close()
+		gfsfile, err := db.GridFS("fs").OpenId(file.FileID)
+
+		if err != nil {
+			log.Printf("Cannot get file from GridFS (%s): %s\n", file.FileID.String(), err)
+			return err
+		}
+
+		defer gfsfile.Close()
 
 		// If the file is too big, use a buffer
-		if file.Size() < 64<<20 {
-			b, err := ioutil.ReadAll(file)
+		if gfsfile.Size() < 64<<20 {
+			b, err := ioutil.ReadAll(gfsfile)
 
 			if err != nil {
 				log.Printf("Cannot read from GridFS: %s\n", err)
 				return err
 			}
 
-			m.filesCache.Set(path, b)
+			m.filesContentCache.Set(path, b)
 
 			_, err = destination.Write(b)
 		} else {
-			_, err = io.Copy(destination, file)
+			_, err = io.Copy(destination, gfsfile)
 		}
 
 		if err != nil {
@@ -115,39 +135,23 @@ func (m *Miogo) FetchFileContent(path string, destination io.Writer) error {
 	return errors.New("File not found")
 }
 
-func (m *Miogo) FileExists(path string) bool {
-	if _, ok := m.filesCache.Get(path); ok {
-		return true
-	}
-
-	d, f := formatF(path)
-	query := db.C("folders").Find(bson.M{"path": d, "files.name": f}).
-		Select(bson.M{"files": bson.M{"$elemMatch": bson.M{"name": f}}})
-
-	if count, err := query.Count(); count > 0 && err == nil {
-		return true
-	}
-
-	return false
-}
-
 func (m *Miogo) RemoveFile(path string) bool {
-	d, f := formatF(path)
+	path = formatD(path)
 
-	query := db.C("folders").Find(bson.M{"path": d, "files.name": f}).
-		Select(bson.M{"files": bson.M{"$elemMatch": bson.M{"name": f}}})
-
-	if count, err := query.Count(); count > 0 && err == nil {
-		var folder Folder
-		query.One(&folder)
-
-		if err := db.GridFS("fs").RemoveId(folder.Files[0].FileID); err != nil {
+	if file, ok := m.FetchFile(path); ok {
+		if err := db.GridFS("fs").RemoveId(file.FileID); err != nil {
+			log.Printf("RemoveId (GridFS) failed for FileID '%s' (%s)\n", file.FileID.String(), path)
 			return false
 		}
 
+		d, f := formatF(path)
 		if err := db.C("folders").Update(bson.M{"path": d}, bson.M{"$pull": bson.M{"files": bson.M{"name": f}}}); err != nil {
 			return false
 		}
+
+		m.filesCache.Invalidate(path)
+		m.filesContentCache.Invalidate(path)
+		m.foldersCache.Invalidate(d)
 
 		return true
 	}

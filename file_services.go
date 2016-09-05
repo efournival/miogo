@@ -12,14 +12,9 @@ func (m *Miogo) GetFile(ctx *fasthttp.RequestCtx, u *User) {
 	path := formatD(string(ctx.FormValue("path")))
 
 	ctx.SetBodyStreamWriter(func(w *bufio.Writer) {
-		if err := m.FetchFileContent(path, w); err != nil {
+		if err := m.FetchFileContent(path, w, u); err != nil {
 			ctx.Response.Header.Add("Content-Type", "application/json")
-
-			if err.Error() == "File not found" {
-				w.WriteString(`{ "error": "File not found" }`)
-			} else {
-				w.WriteString(`{ "error": "Server error" }`)
-			}
+			w.WriteString(`{ "error": "` + err.Error() + `" }`)
 		}
 	})
 }
@@ -28,8 +23,14 @@ func (m *Miogo) GetFolder(ctx *fasthttp.RequestCtx, u *User) {
 	path := formatD(string(ctx.FormValue("path")))
 
 	if folder, ok := m.FetchFolder(path); ok {
+		if GetRightType(u, folder.Rights) < AllowedToRead {
+			ctx.SetBodyString(`{ "error": "Access denied" }`)
+			return
+		}
+
 		res, _ := json.Marshal(folder)
 		ctx.SetBody(res)
+
 		return
 	}
 
@@ -39,7 +40,12 @@ func (m *Miogo) GetFolder(ctx *fasthttp.RequestCtx, u *User) {
 func (m *Miogo) NewFolder(ctx *fasthttp.RequestCtx, u *User) {
 	path := formatD(string(ctx.FormValue("path")))
 
-	if _, ok := m.FetchFolder(parentD(path)); !ok {
+	if folder, ok := m.FetchFolder(parentD(path)); ok {
+		if GetRightType(u, folder.Rights) < AllowedToRead {
+			ctx.SetBodyString(`{ "error": "Access denied" }`)
+			return
+		}
+	} else {
 		ctx.SetBodyString(`{ "error": "Bad folder name" }`)
 		return
 	}
@@ -66,7 +72,12 @@ func (m *Miogo) Upload(ctx *fasthttp.RequestCtx, u *User) {
 
 	path := formatD(form.Value["path"][0])
 
-	if _, exists := m.FetchFolder(path); !exists {
+	if folder, ok := m.FetchFolder(path); ok {
+		if GetRightType(u, folder.Rights) < AllowedToWrite {
+			ctx.SetBodyString(`{ "error": "Access denied" }`)
+			return
+		}
+	} else {
 		ctx.SetBodyString(`{ "error": "Wrong path" }`)
 		return
 	}

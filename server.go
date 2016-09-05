@@ -19,14 +19,15 @@ type MiogoConfig struct {
 }
 
 type Miogo struct {
-	conf            *MiogoConfig
-	services        map[string]fasthttp.RequestHandler
-	sessionDuration time.Duration
-	foldersCache    *Cache
-	filesCache      *Cache
-	sessionsCache   *Cache
-	usersCache      *Cache
-	groupsCache     *Cache
+	conf              *MiogoConfig
+	services          map[string]fasthttp.RequestHandler
+	sessionDuration   time.Duration
+	foldersCache      *Cache
+	filesCache        *Cache
+	filesContentCache *Cache
+	sessionsCache     *Cache
+	usersCache        *Cache
+	groupsCache       *Cache
 }
 
 func (m *Miogo) GetHandler() fasthttp.RequestHandler {
@@ -73,6 +74,7 @@ func NewMiogo() *Miogo {
 		make(map[string]fasthttp.RequestHandler),
 		time.Duration(conf.SessionDuration) * time.Minute,
 		NewCache(0),
+		NewCache(0),
 		NewCache(64 >> 20), // 64 megabytes
 		NewCache(0),
 		NewCache(0),
@@ -81,7 +83,7 @@ func NewMiogo() *Miogo {
 
 	miogo.RegisterService(&Service{
 		Handler:         miogo.GetFile,
-		Options:         NoJSON | NoLoginCheck,
+		Options:         NoJSON,
 		MandatoryFields: []string{"path"},
 	})
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"log"
 	"strings"
 
 	"github.com/valyala/fasthttp"
@@ -32,6 +31,8 @@ type EntityRight struct {
 
 func RightStringToRightType(str string) RightType {
 	switch str {
+	case "n":
+		return Nothing
 	case "r":
 		return AllowedToRead
 	case "rw":
@@ -54,7 +55,12 @@ func UserBelongsToGroup(u *User, g string) bool {
 }
 
 func GetRightType(u *User, r *Right) RightType {
-	var result RightType = RightStringToRightType(r.All)
+	if r == nil {
+		// WARNING: this is the default policy when there is NO rights set
+		return AllowedToWrite
+	}
+
+	result := RightStringToRightType(r.All)
 
 	if result == AllowedToChangeRights {
 		// Stop here as we are returning the most permissive right
@@ -70,7 +76,6 @@ func GetRightType(u *User, r *Right) RightType {
 				if rights == AllowedToChangeRights {
 					return rights
 				}
-
 				result = rights
 			}
 		}
@@ -93,6 +98,13 @@ func (m *Miogo) SetResourceRightsP(resource, rights, entityType, name string) er
 	var err error
 
 	if folder, ok := m.FetchFolder(resource); ok {
+		// TODO: server admin should have 'rwa' access to everything
+		// TODO: fix and uncomment the following code
+		/*if GetRightType(u, folder.Rights) < AllowedToChangeRights {
+			ctx.SetBodyString(`{ "error": "Access denied" }`)
+			return
+		}*/
+
 		selector := bson.M{"path": bson.M{"$regex": bson.RegEx{`^` + resource, ""}}}
 
 		for _, childFile := range folder.Files {
@@ -118,12 +130,15 @@ func (m *Miogo) SetResourceRightsP(resource, rights, entityType, name string) er
 		if err != nil {
 			return errors.New("Can't set rights for folder")
 		}
-		m.foldersCache.InvalidateStartWith(resource)
 
-	} else if m.FileExists(resource) {
+		m.foldersCache.InvalidateStartWith(resource)
+	} else if _, ok := m.FetchFile(resource); ok {
+		/*if GetRightType(u, f.Rights) < AllowedToChangeRights {
+			ctx.SetBodyString(`{ "error": "Access denied" }`)
+			return
+		}*/
+
 		dir, file := formatF(resource)
-		log.Println(dir)
-		log.Println(file)
 
 		if entityType == "all" {
 			err = db.C("folders").Update(
@@ -138,6 +153,8 @@ func (m *Miogo) SetResourceRightsP(resource, rights, entityType, name string) er
 		if err != nil {
 			return errors.New("Can't set rights for file")
 		}
+
+		m.filesCache.Invalidate(resource)
 	}
 	return nil
 }
@@ -164,7 +181,7 @@ func (m *Miogo) SetResourceRights(ctx *fasthttp.RequestCtx, u *User) {
 
 	if _, ok := m.FetchFolder(resource); ok {
 		m.SetResourceRightsP(resource, rights, entityType, name)
-	} else if m.FileExists(resource) {
+	} else if _, ok := m.FetchFile(resource); ok {
 		err = m.SetResourceRightsP(resource, rights, entityType, name)
 		if err != nil {
 			ctx.SetBodyString(`{ "error": "Cannot set file rights" }`)
@@ -172,6 +189,7 @@ func (m *Miogo) SetResourceRights(ctx *fasthttp.RequestCtx, u *User) {
 		}
 		dir, _ := formatF(resource)
 		m.foldersCache.Invalidate(dir)
+		m.filesCache.Invalidate(resource)
 	} else {
 		ctx.SetBodyString(`{ "error": "Resource does not exist" }`)
 		return

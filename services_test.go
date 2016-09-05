@@ -237,32 +237,27 @@ func TestGroup(t *testing.T) {
 	testPOST(t, "NewGroup", "name=miogo", `{ "error": "Group already exists" }`)
 
 	// TODO : check if user exists before adding/removing them
-	testPOST(t, "AddUserToGroup", "group=miogo&user=test@miogo.tld", `{ "success": "true" }`)
 	testPOST(t, "AddUserToGroup", "group=miogo&user=test2@miogo.tld", `{ "success": "true" }`)
 	testPOST(t, "RemoveUserFromGroup", "group=miogo&user=test2@miogo.tld", `{ "success": "true" }`)
-
 	testPOST(t, "AddUserToGroup", "group=test&user=test@miogo.tld", `{ "success": "true" }`)
 	testPOST(t, "AddUserToGroup", "group=test&user=test2@miogo.tld", `{ "success": "true" }`)
 	testPOST(t, "RemoveGroup", "name=test", `{ "success": "true" }`)
-
-	testPOST(t, "SetGroupAdmin", "group=miogo&user=test@miogo.tld", `{ "success": "true" }`)
 }
 
 func TestSetRights(t *testing.T) {
-	testPOST(t, "SetResourceRights", "resource=/&user=test@miogo.tld&rights=rw", `{ "success": "true" }`)
-	//testPOST(t, "SetResourceRights", "resource=/test/README.md&user=test@miogo.tld&rights=rw", `{ "success": "true" }`)
-
-	testPOST(t, "SetResourceRights", "resource=/&group=miogo&rights=w", `{ "success": "true" }`)
-	//testPOST(t, "SetResourceRights", "resource=/test/README.md&group=miogo&rights=w", `{ "success": "true" }`)
-
 	testPOST(t, "SetResourceRights", "resource=/&rights=r&all=", `{ "success": "true" }`)
-	//testPOST(t, "SetResourceRights", "resource=/test/README.md&rights=r&all=", `{ "success": "true" }`)
+	testPOST(t, "SetResourceRights", "resource=/&rights=rw&group=miogo", `{ "success": "true" }`)
+	testPOST(t, "SetResourceRights", "resource=/test&rights=n&all=", `{ "success": "true" }`)
 }
 
 func TestGetFolder(t *testing.T) {
-	testPOST(t, "GetFolder", "path=/test/test", `{"path":"/test/test","rights":{"all":"r","groups":[{"name":"miogo","rights":"w"}],"users":[{"name":"test@miogo.tld","rights":"rw"}]}}`)
-	testPOST(t, "GetFolder", "path=/test", `{"path":"/test","files":[{"name":"README.md","rights":{"all":"r","groups":[{"name":"miogo","rights":"w"}],"users":[{"name":"test@miogo.tld","rights":"rw"}]}}],"folders":[{"path":"/test/test"}],"rights":{"all":"r","groups":[{"name":"miogo","rights":"w"}],"users":[{"name":"test@miogo.tld","rights":"rw"}]}}`)
-	testPOST(t, "GetFolder", "path=/", `{"path":"/","folders":[{"path":"/test"}],"rights":{"all":"r","groups":[{"name":"miogo","rights":"w"}],"users":[{"name":"test@miogo.tld","rights":"rw"}]}}`)
+	testPOST(t, "GetFolder", "path=/", `{"path":"/","folders":[{"path":"/test"}],"rights":{"all":"r","groups":[{"name":"miogo","rights":"rw"}]}}`)
+}
+
+func TestRightsVerification(t *testing.T) {
+	testPOST(t, "GetFile", "path=/test/README.md", `{ "error": "Access denied" }`)
+	testPOST(t, "GetFolder", "path=/test", `{ "error": "Access denied" }`)
+	testUpload(t, "main.go", "/test", `{ "error": "Access denied" }`)
 }
 
 func TestLogout(t *testing.T) {
