@@ -46,7 +46,7 @@ func RightStringToRightType(str string) RightType {
 
 func UserBelongsToGroup(u *User, g string) bool {
 	for _, group := range u.Groups {
-		if group.Id == g {
+		if group == g {
 			return true
 		}
 	}

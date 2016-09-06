@@ -10,7 +10,7 @@ import (
 
 type Group struct {
 	Id     string `bson:"_id,omitempty" json:"id"`
-	Admins []User `json:"admins,omitempty"`
+	Admins []User `bson:"admins" json:"admins,omitempty"`
 }
 
 func (m *Miogo) FetchGroup(name string) (*Group, bool) {

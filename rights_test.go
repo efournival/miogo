@@ -10,11 +10,11 @@ var (
 func init() {
 	usr1 = User{
 		Email:  "user1@test.tld",
-		Groups: []Group{Group{Id: "group1"}, Group{Id: "group2"}}}
+		Groups: []string{"group1", "group2"}}
 
 	usr2 = User{
 		Email:  "user2@test.tld",
-		Groups: []Group{Group{Id: "group2"}, Group{Id: "group3"}}}
+		Groups: []string{"group2", "group3"}}
 
 	r1 = Right{
 		All: "r",

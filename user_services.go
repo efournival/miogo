@@ -31,9 +31,9 @@ import (
  */
 
 type User struct {
-	Email    string  `bson:"email" json:"email"`
-	Password string  `bson:"password" json:"password"`
-	Groups   []Group `json:"groups,omitempty"`
+	Email    string   `bson:"email" json:"email"`
+	Password string   `bson:"password" json:"password"`
+	Groups   []string `bson:"groups" json:"groups,omitempty"`
 	Session  struct {
 		Hash       string `bson:"hash"`
 		Expiration int64  `bson:"expire"`
@@ -122,6 +122,7 @@ func (m *Miogo) RemoveUser(ctx *fasthttp.RequestCtx, u *User) error {
 	}
 
 	db.C("users").Remove(bson.M{"email": email})
+	m.usersCache.Invalidate(email)
 
 	ctx.SetBodyString(jsonkv("success", "true"))
 	return nil

@@ -240,6 +240,7 @@ func TestGroup(t *testing.T) {
 	testPOST(t, "AddUserToGroup", "group=miogo&user=test2@miogo.tld", jsonkv("success", "true"))
 	testPOST(t, "RemoveUserFromGroup", "group=miogo&user=test2@miogo.tld", jsonkv("success", "true"))
 	testPOST(t, "AddUserToGroup", "group=test&user=test@miogo.tld", jsonkv("success", "true"))
+	testPOST(t, "AddUserToGroup", "group=miogo&user=test@miogo.tld", jsonkv("success", "true"))
 	testPOST(t, "AddUserToGroup", "group=test&user=test2@miogo.tld", jsonkv("success", "true"))
 	testPOST(t, "RemoveGroup", "name=test", jsonkv("success", "true"))
 }
