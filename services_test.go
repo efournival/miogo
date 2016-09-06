@@ -191,14 +191,14 @@ func TestArgs(t *testing.T) {
 }
 
 func TestLogin(t *testing.T) {
-	testPOST(t, "Login", fmt.Sprintf("email=%sXXX&password=%s", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "false" }`)
-	testPOST(t, "Login", fmt.Sprintf("email=%s&password=%sXXX", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "false" }`)
+	testPOST(t, "Login", fmt.Sprintf("email=%sXXX&password=%s", miogo.conf.AdminEmail, miogo.conf.AdminPassword), jsonkv("error", "User does not exist"))
+	testPOST(t, "Login", fmt.Sprintf("email=%s&password=%sXXX", miogo.conf.AdminEmail, miogo.conf.AdminPassword), jsonkv("error", "Wrong password"))
 
 	if session != "" {
 		t.Error("Session cookie should not have been returned by the server")
 	}
 
-	testPOST(t, "Login", fmt.Sprintf("email=%s&password=%s", miogo.conf.AdminEmail, miogo.conf.AdminPassword), `{ "success": "true" }`)
+	testPOST(t, "Login", fmt.Sprintf("email=%s&password=%s", miogo.conf.AdminEmail, miogo.conf.AdminPassword), jsonkv("success", "true"))
 
 	if session == "" {
 		t.Error("Session cookie has not been returned by the server")
@@ -206,16 +206,16 @@ func TestLogin(t *testing.T) {
 }
 
 func TestNewFolder(t *testing.T) {
-	testPOST(t, "NewFolder", "path=/test/test", `{ "error": "Bad folder name" }`)
-	testPOST(t, "NewFolder", "path=/test", `{ "success": "true" }`)
-	testPOST(t, "NewFolder", "path=/test/test", `{ "success": "true" }`)
-	testPOST(t, "NewFolder", "path=/test/test", `{ "error": "Folder already exists" }`)
+	testPOST(t, "NewFolder", "path=/test/test", jsonkv("error", "Bad folder name"))
+	testPOST(t, "NewFolder", "path=/test", jsonkv("success", "true"))
+	testPOST(t, "NewFolder", "path=/test/test", jsonkv("success", "true"))
+	testPOST(t, "NewFolder", "path=/test/test", jsonkv("error", "Folder already exists"))
 }
 
 func TestUpload(t *testing.T) {
-	testUpload(t, "README.md", "/test", `{ "success": "true" }`)
+	testUpload(t, "README.md", "/test", jsonkv("success", "true"))
 	// TODO: test multiple files upload
-	testUpload(t, "main.go", "/test/a/b", `{ "error": "Wrong path" }`)
+	testUpload(t, "main.go", "/test/a/b", jsonkv("error", "Wrong path"))
 }
 
 func TestGetFile(t *testing.T) {
@@ -223,31 +223,31 @@ func TestGetFile(t *testing.T) {
 }
 
 func TestUser(t *testing.T) {
-	testPOST(t, "NewUser", "email=test@miogo.tld&password=test", `{ "success": "true" }`)
-	testPOST(t, "NewUser", "email=test2@miogo.tld&password=test", `{ "success": "true" }`)
-	testPOST(t, "NewUser", "email=test3@miogo.tld&password=test", `{ "success": "true" }`)
-	testPOST(t, "RemoveUser", "email=test3@miogo.tld", `{ "success": "true" }`)
-	testPOST(t, "NewUser", "email=test@miogo.tld&password=1234", `{ "error": "user already exists" }`)
+	testPOST(t, "NewUser", "email=test@miogo.tld&password=test", jsonkv("success", "true"))
+	testPOST(t, "NewUser", "email=test2@miogo.tld&password=test", jsonkv("success", "true"))
+	testPOST(t, "NewUser", "email=test3@miogo.tld&password=test", jsonkv("success", "true"))
+	testPOST(t, "RemoveUser", "email=test3@miogo.tld", jsonkv("success", "true"))
+	testPOST(t, "NewUser", "email=test@miogo.tld&password=1234", jsonkv("error", "User already exists"))
 	// TODO: List users
 }
 
 func TestGroup(t *testing.T) {
-	testPOST(t, "NewGroup", "name=miogo", `{ "success": "true" }`)
-	testPOST(t, "NewGroup", "name=test", `{ "success": "true" }`)
-	testPOST(t, "NewGroup", "name=miogo", `{ "error": "Group already exists" }`)
+	testPOST(t, "NewGroup", "name=miogo", jsonkv("success", "true"))
+	testPOST(t, "NewGroup", "name=test", jsonkv("success", "true"))
+	testPOST(t, "NewGroup", "name=miogo", jsonkv("error", "Group already exists"))
 
 	// TODO : check if user exists before adding/removing them
-	testPOST(t, "AddUserToGroup", "group=miogo&user=test2@miogo.tld", `{ "success": "true" }`)
-	testPOST(t, "RemoveUserFromGroup", "group=miogo&user=test2@miogo.tld", `{ "success": "true" }`)
-	testPOST(t, "AddUserToGroup", "group=test&user=test@miogo.tld", `{ "success": "true" }`)
-	testPOST(t, "AddUserToGroup", "group=test&user=test2@miogo.tld", `{ "success": "true" }`)
-	testPOST(t, "RemoveGroup", "name=test", `{ "success": "true" }`)
+	testPOST(t, "AddUserToGroup", "group=miogo&user=test2@miogo.tld", jsonkv("success", "true"))
+	testPOST(t, "RemoveUserFromGroup", "group=miogo&user=test2@miogo.tld", jsonkv("success", "true"))
+	testPOST(t, "AddUserToGroup", "group=test&user=test@miogo.tld", jsonkv("success", "true"))
+	testPOST(t, "AddUserToGroup", "group=test&user=test2@miogo.tld", jsonkv("success", "true"))
+	testPOST(t, "RemoveGroup", "name=test", jsonkv("success", "true"))
 }
 
 func TestSetRights(t *testing.T) {
-	testPOST(t, "SetResourceRights", "resource=/&rights=r&all=", `{ "success": "true" }`)
-	testPOST(t, "SetResourceRights", "resource=/&rights=rw&group=miogo", `{ "success": "true" }`)
-	testPOST(t, "SetResourceRights", "resource=/test&rights=n&all=", `{ "success": "true" }`)
+	testPOST(t, "SetResourceRights", "resource=/&rights=r&all=", jsonkv("success", "true"))
+	testPOST(t, "SetResourceRights", "resource=/&rights=rw&group=miogo", jsonkv("success", "true"))
+	testPOST(t, "SetResourceRights", "resource=/test&rights=n&all=", jsonkv("success", "true"))
 }
 
 func TestGetFolder(t *testing.T) {
@@ -255,13 +255,13 @@ func TestGetFolder(t *testing.T) {
 }
 
 func TestRightsVerification(t *testing.T) {
-	testPOST(t, "GetFile", "path=/test/README.md", `{ "error": "Access denied" }`)
-	testPOST(t, "GetFolder", "path=/test", `{ "error": "Access denied" }`)
-	testUpload(t, "main.go", "/test", `{ "error": "Access denied" }`)
+	testPOST(t, "GetFile", "path=/test/README.md", jsonkv("error", "Access denied"))
+	testPOST(t, "GetFolder", "path=/test", jsonkv("error", "Access denied"))
+	testUpload(t, "main.go", "/test", jsonkv("error", "Access denied"))
 }
 
 func TestLogout(t *testing.T) {
-	testPOST(t, "Logout", "", `{ "success": "true" }`)
+	testPOST(t, "Logout", "", jsonkv("success", "true"))
 
 	if session != "" {
 		t.Error("Session cookie should have been cleared")

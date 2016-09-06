@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/valyala/fasthttp"
@@ -31,24 +32,24 @@ func (m *Miogo) FetchGroup(name string) (*Group, bool) {
 	return nil, false
 }
 
-func (m *Miogo) NewGroup(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) NewGroup(ctx *fasthttp.RequestCtx, u *User) error {
 	name := strings.TrimSpace(string(ctx.FormValue("name")))
 
 	if _, exists := m.FetchGroup(name); exists {
-		ctx.SetBodyString(`{ "error": "Group already exists" }`)
-		return
+		return errors.New("Group already exists")
 	}
 
 	db.C("groups").Insert(bson.M{"_id": name})
-	ctx.SetBodyString(`{ "success": "true" }`)
+
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
 }
 
-func (m *Miogo) RemoveGroup(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) RemoveGroup(ctx *fasthttp.RequestCtx, u *User) error {
 	name := strings.TrimSpace(string(ctx.FormValue("name")))
 
 	if _, exists := m.FetchGroup(name); !exists {
-		ctx.SetBodyString(`{ "error": "Group does not exist" }`)
-		return
+		return errors.New("Group does not exist")
 	}
 
 	// Store users belonging to the group
@@ -67,10 +68,11 @@ func (m *Miogo) RemoveGroup(ctx *fasthttp.RequestCtx, u *User) {
 	db.C("groups").RemoveId(name)
 	m.groupsCache.Invalidate(name)
 
-	ctx.SetBodyString(`{ "success": "true" }`)
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
 }
 
-func (m *Miogo) AddUserToGroup(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) AddUserToGroup(ctx *fasthttp.RequestCtx, u *User) error {
 	// TODO: handle multiple users
 	user := strings.TrimSpace(string(ctx.FormValue("user")))
 	group := strings.TrimSpace(string(ctx.FormValue("group")))
@@ -81,10 +83,11 @@ func (m *Miogo) AddUserToGroup(ctx *fasthttp.RequestCtx, u *User) {
 
 	m.usersCache.Invalidate(user)
 
-	ctx.SetBodyString(`{ "success": "true" }`)
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
 }
 
-func (m *Miogo) RemoveUserFromGroup(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) RemoveUserFromGroup(ctx *fasthttp.RequestCtx, u *User) error {
 	user := strings.TrimSpace(string(ctx.FormValue("user")))
 	group := strings.TrimSpace(string(ctx.FormValue("group")))
 
@@ -94,15 +97,18 @@ func (m *Miogo) RemoveUserFromGroup(ctx *fasthttp.RequestCtx, u *User) {
 
 	m.usersCache.Invalidate(user)
 
-	ctx.SetBodyString(`{ "success": "true" }`)
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
 }
 
-func (m *Miogo) SetGroupAdmin(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) SetGroupAdmin(ctx *fasthttp.RequestCtx, u *User) error {
 	user := strings.TrimSpace(string(ctx.FormValue("user")))
 	group := strings.TrimSpace(string(ctx.FormValue("group")))
 
 	//TODO: check if group and user exist
 
 	db.C("groups").Update(bson.M{"_id": group}, bson.M{"$addToSet": bson.M{"admins": user}})
-	ctx.SetBodyString(`{ "success": "true" }`)
+
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
 }

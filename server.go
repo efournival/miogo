@@ -20,7 +20,7 @@ type MiogoConfig struct {
 
 type Miogo struct {
 	conf              *MiogoConfig
-	services          map[string]fasthttp.RequestHandler
+	services          map[string]func(*fasthttp.RequestCtx) error
 	sessionDuration   time.Duration
 	foldersCache      *Cache
 	filesCache        *Cache
@@ -30,14 +30,21 @@ type Miogo struct {
 	groupsCache       *Cache
 }
 
+func jsonkv(key, value string) string {
+	return `{"` + key + `": "` + value + `"}`
+}
+
 func (m *Miogo) GetHandler() fasthttp.RequestHandler {
 	return func(ctx *fasthttp.RequestCtx) {
 		if f, ok := m.services[string(ctx.Path())]; ok {
-			f(ctx)
-			return
+			if err := f(ctx); err != nil {
+				ctx.Response.Reset()
+				ctx.SetContentType("application/json")
+				ctx.SetBodyString(jsonkv("error", err.Error()))
+			}
+		} else {
+			ctx.Error("Wrong service name", fasthttp.StatusNotFound)
 		}
-
-		ctx.Error("Wrong service name", fasthttp.StatusNotFound)
 	}
 }
 
@@ -71,7 +78,7 @@ func NewMiogo() *Miogo {
 
 	miogo := Miogo{
 		&conf,
-		make(map[string]fasthttp.RequestHandler),
+		make(map[string]func(*fasthttp.RequestCtx) error),
 		time.Duration(conf.SessionDuration) * time.Minute,
 		NewCache(0),
 		NewCache(0),

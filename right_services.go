@@ -130,8 +130,6 @@ func (m *Miogo) SetResourceRightsP(resource, rights, entityType, name string) er
 		if err != nil {
 			return errors.New("Can't set rights for folder")
 		}
-
-		m.foldersCache.InvalidateStartWith(resource)
 	} else if _, ok := m.FetchFile(resource); ok {
 		/*if GetRightType(u, f.Rights) < AllowedToChangeRights {
 			ctx.SetBodyString(`{ "error": "Access denied" }`)
@@ -156,10 +154,11 @@ func (m *Miogo) SetResourceRightsP(resource, rights, entityType, name string) er
 
 		m.filesCache.Invalidate(resource)
 	}
+
 	return nil
 }
 
-func (m *Miogo) SetResourceRights(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) SetResourceRights(ctx *fasthttp.RequestCtx, u *User) error {
 	rights := strings.TrimSpace(string(ctx.FormValue("rights")))
 	resource := formatD(string(ctx.FormValue("resource")))
 
@@ -177,23 +176,24 @@ func (m *Miogo) SetResourceRights(ctx *fasthttp.RequestCtx, u *User) {
 		entityType = "all"
 	}
 
-	var err error
-
 	if _, ok := m.FetchFolder(resource); ok {
-		m.SetResourceRightsP(resource, rights, entityType, name)
-	} else if _, ok := m.FetchFile(resource); ok {
-		err = m.SetResourceRightsP(resource, rights, entityType, name)
-		if err != nil {
-			ctx.SetBodyString(`{ "error": "Cannot set file rights" }`)
-			return
+		if err := m.SetResourceRightsP(resource, rights, entityType, name); err != nil {
+			return err
 		}
+
+		m.foldersCache.InvalidateStartWith(resource)
+	} else if _, ok := m.FetchFile(resource); ok {
+		if err := m.SetResourceRightsP(resource, rights, entityType, name); err == nil {
+			return errors.New("Cannot set file rights")
+		}
+
 		dir, _ := formatF(resource)
 		m.foldersCache.Invalidate(dir)
 		m.filesCache.Invalidate(resource)
 	} else {
-		ctx.SetBodyString(`{ "error": "Resource does not exist" }`)
-		return
+		return errors.New("Resource does not exist")
 	}
 
-	ctx.SetBodyString(`{ "success": "true" }`)
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
 }

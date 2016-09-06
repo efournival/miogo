@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"log"
 	"strings"
 	"time"
@@ -71,19 +72,21 @@ func (m *Miogo) newUserSession(usr *User, ctx *fasthttp.RequestCtx) {
 	fasthttp.ReleaseCookie(cookie)
 }
 
-func (m *Miogo) Login(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) Login(ctx *fasthttp.RequestCtx, u *User) error {
 	if usr, ok := m.FetchUser(strings.TrimSpace(string(ctx.FormValue("email")))); ok {
 		if err := bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(ctx.FormValue("password"))); err == nil {
 			m.newUserSession(usr, ctx)
-			ctx.SetBodyString(`{ "success": "true" }`)
-			return
+			ctx.SetBodyString(jsonkv("success", "true"))
+			return nil
 		}
+
+		return errors.New("Wrong password")
 	}
 
-	ctx.SetBodyString(`{ "success": "false" }`)
+	return errors.New("User does not exist")
 }
 
-func (m *Miogo) Logout(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) Logout(ctx *fasthttp.RequestCtx, u *User) error {
 	raw := string(ctx.Request.Header.Cookie("session"))
 
 	if raw == u.Session.Hash {
@@ -93,33 +96,35 @@ func (m *Miogo) Logout(ctx *fasthttp.RequestCtx, u *User) {
 
 	ctx.Response.Header.DelClientCookie("session")
 
-	ctx.SetBodyString(`{ "success": "true" }`)
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
 }
 
-func (m *Miogo) NewUser(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) NewUser(ctx *fasthttp.RequestCtx, u *User) error {
 	email := string(ctx.FormValue("email"))
 	hashedPassword, _ := bcrypt.GenerateFromPassword(ctx.FormValue("password"), bcrypt.DefaultCost)
 
 	if _, exists := m.FetchUser(email); exists {
-		ctx.SetBodyString(`{ "error": "User already exists" }`)
-		return
+		return errors.New("User already exists")
 	}
 
 	db.C("users").Insert(bson.M{"email": email, "password": string(hashedPassword)})
 
-	ctx.SetBodyString(`{ "success": "true" }`)
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
 }
 
-func (m *Miogo) RemoveUser(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) RemoveUser(ctx *fasthttp.RequestCtx, u *User) error {
 	email := string(ctx.FormValue("email"))
 
 	if _, exists := m.FetchUser(email); !exists {
-		ctx.SetBodyString(`{ "error": "User does not exist" }`)
-		return
+		return errors.New("User does not exist")
 	}
 
 	db.C("users").Remove(bson.M{"email": email})
-	ctx.SetBodyString(`{ "success": "true" }`)
+
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
 }
 
 func (m *Miogo) updateUserSession(usr *User, raw string) (*User, bool) {

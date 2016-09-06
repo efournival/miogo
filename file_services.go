@@ -1,85 +1,72 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
+	"errors"
 
 	"github.com/valyala/fasthttp"
 	"gopkg.in/mgo.v2/bson"
 )
 
-func (m *Miogo) GetFile(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) GetFile(ctx *fasthttp.RequestCtx, u *User) error {
 	path := formatD(string(ctx.FormValue("path")))
-
-	ctx.SetBodyStreamWriter(func(w *bufio.Writer) {
-		if err := m.FetchFileContent(path, w, u); err != nil {
-			ctx.Response.Header.Add("Content-Type", "application/json")
-			w.WriteString(`{ "error": "` + err.Error() + `" }`)
-		}
-	})
+	return m.FetchFileContent(path, ctx.Response.BodyWriter(), u)
 }
 
-func (m *Miogo) GetFolder(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) GetFolder(ctx *fasthttp.RequestCtx, u *User) error {
 	path := formatD(string(ctx.FormValue("path")))
 
 	if folder, ok := m.FetchFolder(path); ok {
 		if GetRightType(u, folder.Rights) < AllowedToRead {
-			ctx.SetBodyString(`{ "error": "Access denied" }`)
-			return
+			return errors.New("Access denied")
 		}
 
 		res, _ := json.Marshal(folder)
 		ctx.SetBody(res)
-
-		return
+		return nil
 	}
 
-	ctx.SetBodyString(`{ "error": "Folder does not exist" }`)
+	return errors.New("Folder does not exist")
 }
 
-func (m *Miogo) NewFolder(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) NewFolder(ctx *fasthttp.RequestCtx, u *User) error {
 	path := formatD(string(ctx.FormValue("path")))
 
 	if folder, ok := m.FetchFolder(parentD(path)); ok {
 		if GetRightType(u, folder.Rights) < AllowedToRead {
-			ctx.SetBodyString(`{ "error": "Access denied" }`)
-			return
+			return errors.New("Access denied")
 		}
 	} else {
-		ctx.SetBodyString(`{ "error": "Bad folder name" }`)
-		return
+		return errors.New("Bad folder name")
 	}
 
 	if _, exists := m.FetchFolder(path); exists {
-		ctx.SetBodyString(`{ "error": "Folder already exists" }`)
-		return
+		return errors.New("Folder already exists")
 	}
 
 	m.foldersCache.Invalidate(parentD(path))
 
 	db.C("folders").Insert(bson.M{"path": path})
 
-	ctx.SetBodyString(`{ "success": "true" }`)
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
 }
 
-func (m *Miogo) Upload(ctx *fasthttp.RequestCtx, u *User) {
+func (m *Miogo) Upload(ctx *fasthttp.RequestCtx, u *User) error {
 	form, err := ctx.MultipartForm()
 
 	if err != nil {
-		ctx.SetBodyString(`{ "error": "Bad request" }`)
-		return
+		return errors.New("Bad request")
 	}
 
 	path := formatD(form.Value["path"][0])
 
 	if folder, ok := m.FetchFolder(path); ok {
 		if GetRightType(u, folder.Rights) < AllowedToWrite {
-			ctx.SetBodyString(`{ "error": "Access denied" }`)
-			return
+			return errors.New("Access denied")
 		}
 	} else {
-		ctx.SetBodyString(`{ "error": "Wrong path" }`)
-		return
+		return errors.New("Wrong path")
 	}
 
 	fb := NewFilesBulk(path)
@@ -88,21 +75,21 @@ func (m *Miogo) Upload(ctx *fasthttp.RequestCtx, u *User) {
 		file, err := header.Open()
 
 		if err != nil {
-			ctx.SetBodyString(`{ "error": "Bad file header" }`)
-			return
+			return errors.New("Bad file header")
 		}
 
 		id, err := m.CreateGFSFile(header.Filename, file)
 
 		if err != nil {
 			fb.Revert()
-			ctx.SetBodyString(`{ "error": "Failure on our side" }`)
-			return
+			return errors.New("Failure on our side")
 		}
 
 		fb.AddFile(id, header.Filename)
 	}
 
 	m.PushFilesBulk(fb)
-	ctx.SetBodyString(`{ "success": "true" }`)
+
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
 }

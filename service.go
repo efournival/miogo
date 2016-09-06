@@ -15,7 +15,7 @@ const (
 	NoLoginCheck
 )
 
-type ServiceFunc func(*fasthttp.RequestCtx, *User)
+type ServiceFunc func(*fasthttp.RequestCtx, *User) error
 
 type Service struct {
 	Name            string
@@ -31,17 +31,17 @@ func (m *Miogo) RegisterService(s *Service) {
 		s.Name = strings.Split(s.Name[strings.LastIndex(s.Name, ".")+1:], "-")[0]
 	}
 
-	m.services["/"+s.Name] = func(ctx *fasthttp.RequestCtx) {
+	m.services["/"+s.Name] = func(ctx *fasthttp.RequestCtx) error {
 		var ok bool
 
 		if !ctx.Request.Header.IsPost() {
 			ctx.Error("Please send POST requests", fasthttp.StatusBadRequest)
-			return
+			return nil
 		}
 
 		if ok = s.Validate(ctx.PostArgs()); !ok {
 			ctx.Error("Wrong arguments", fasthttp.StatusBadRequest)
-			return
+			return nil
 		}
 
 		var u *User
@@ -49,15 +49,15 @@ func (m *Miogo) RegisterService(s *Service) {
 		if s.Options&NoLoginCheck == 0 {
 			if u, ok = m.GetUserFromRequest(ctx); !ok {
 				ctx.Error("Not logged in", fasthttp.StatusForbidden)
-				return
+				return nil
 			}
 		}
 
 		if s.Options&NoJSON == 0 {
-			ctx.Response.Header.Add("Content-Type", "application/json")
+			ctx.SetContentType("application/json")
 		}
 
-		s.Handler(ctx, u)
+		return s.Handler(ctx, u)
 	}
 }
 
