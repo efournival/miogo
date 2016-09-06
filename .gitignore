@@ -1,7 +1,6 @@
 miogo
 miogo.conf
-utility/benchmarker/benchmarker
 *.swp
 *.tmp
-*.lua
-*.txt
+benchmarks/*.lua
+benchmarks/*.txt
