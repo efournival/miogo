@@ -33,7 +33,7 @@ func (m *Miogo) NewFolder(ctx *fasthttp.RequestCtx, u *User) error {
 	path := formatD(string(ctx.FormValue("path")))
 
 	if folder, ok := m.FetchFolder(parentD(path)); ok {
-		if GetRightType(u, folder.Rights) < AllowedToRead {
+		if GetRightType(u, folder.Rights) < AllowedToWrite {
 			return errors.New("Access denied")
 		}
 	} else {
