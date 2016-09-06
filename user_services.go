@@ -38,6 +38,7 @@ type User struct {
 		Hash       string `bson:"hash"`
 		Expiration int64  `bson:"expire"`
 	} `bson:"session,omitempty" json:"-"`
+	IsAdmin bool `bson:"is_admin" json:"is_admin,omitempty"`
 }
 
 func hash(val []byte) string {

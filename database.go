@@ -27,8 +27,8 @@ func InitDB(host, adminEmail, adminPassword string) {
 		db.C("folders").Insert(selector)
 	}
 
-	if count, err := session.DB("miogo").C("users").Find(bson.M{"admin": "true"}).Count(); count == 0 && err == nil {
+	if count, err := session.DB("miogo").C("users").Find(bson.M{"is_admin": true}).Count(); count == 0 && err == nil {
 		hashedAdminPassword, _ := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
-		db.C("users").Insert(bson.M{"email": adminEmail, "password": string(hashedAdminPassword), "admin": "true"})
+		db.C("users").Insert(bson.M{"email": adminEmail, "password": string(hashedAdminPassword), "is_admin": true})
 	}
 }
