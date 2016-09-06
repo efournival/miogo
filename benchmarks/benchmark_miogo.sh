@@ -19,6 +19,6 @@ wrk.headers["Content-Type"] = "application/x-www-form-urlencoded"
 wrk.headers["Cookie"] = "session=$session"
 EOF
 
-wrk -v -t2 -c100 -d30s -s ./benchmark_miogo.lua http://localhost:8080/GetFile
+wrk -v -t2 -c10 -d30s -s ./benchmark_miogo.lua http://localhost:8080/GetFile
 
 
