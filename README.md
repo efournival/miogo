@@ -31,11 +31,11 @@ Miogo can be benchmarked by passing [POST data](https://github.com/wg/wrk/issues
 
 ## Direct testing
 ```
-curl -v --data "email=test@test.test&password=test" http://localhost:8080/Login
+curl -c cookies.txt --data "email=test@test.test&password=test" http://localhost:8080/Login
 ```
 ```
-curl -F "path=/test" -F "file=@/path/to/file" http://localhost:8080/Upload -b session=xxx
+curl -b cookies.txt -F "path=/test" -F "file=@/path/to/file" http://localhost:8080/Upload
 ```
 ```
-curl --data "path=/test" http://localhost:8080/GetFolder -b session=xxx
+curl -b cookies.txt --data "path=/test" http://localhost:8080/GetFolder -b session=xxx
 ```
