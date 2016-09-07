@@ -30,10 +30,6 @@ type Miogo struct {
 	groupsCache       *Cache
 }
 
-func jsonkv(key, value string) string {
-	return `{"` + key + `": "` + value + `"}`
-}
-
 func (m *Miogo) GetHandler() fasthttp.RequestHandler {
 	return func(ctx *fasthttp.RequestCtx) {
 		if f, ok := m.services[string(ctx.Path())]; ok {

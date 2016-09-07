@@ -1,37 +1,12 @@
 package main
 
-import (
-	"strings"
-
-	"gopkg.in/mgo.v2/bson"
-)
+import "gopkg.in/mgo.v2/bson"
 
 type Folder struct {
 	Path    string   `bson:"path" json:"path"`
 	Files   []File   `bson:"files" json:"files,omitempty"`
 	Folders []Folder `json:"folders,omitempty"`
 	Rights  *Right   `bson:"rights,omitempty" json:"rights,omitempty"`
-}
-
-func formatD(res string) string {
-	res = strings.TrimRight(strings.TrimSpace(res), "/")
-
-	if len(res) == 0 {
-		return "/"
-	}
-
-	return res
-}
-
-func parentD(res string) string {
-	return formatD(res[:strings.LastIndex(res, "/")+1])
-}
-
-func formatF(res string) (dir string, file string) {
-	pos := strings.LastIndex(res, "/")
-	file = res[pos+1:]
-	dir = formatD(res[:pos])
-	return
 }
 
 func (m *Miogo) FetchFolder(path string) (*Folder, bool) {
