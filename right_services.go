@@ -9,65 +9,48 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func (m *Miogo) SetResourceRightsP(resource, rights, entityType, name string) error {
-	var err error
+func (m *Miogo) setFileRights(path, d, f, rights, entityType, entityName string) error {
+	if entityType == "all" {
+		db.C("folders").Update(
+			bson.M{"path": d, "files.name": f},
+			bson.M{"$set": bson.M{"files.0.rights.all": rights}})
+	} else {
+		db.C("folders").Update(
+			bson.M{"path": d, "files.name": f},
+			bson.M{"$addToSet": bson.M{"files.0.rights." + entityType: bson.M{"name": entityName, "rights": rights}}})
+	}
 
-	if folder, ok := m.FetchFolder(resource); ok {
-		// TODO: server admin should have 'rwa' access to everything
-		// TODO: fix and uncomment the following code
-		/*if GetRightType(u, folder.Rights) < AllowedToChangeRights {
-			ctx.SetBodyString(`{ "error": "Access denied" }`)
-			return
-		}*/
+	m.filesCache.Invalidate(path)
 
-		selector := bson.M{"path": bson.M{"$regex": bson.RegEx{`^` + resource, ""}}}
+	return nil
+}
 
-		for _, childFile := range folder.Files {
-			err = m.SetResourceRightsP(resource+"/"+childFile.Name, rights, entityType, name)
-			if err != nil {
-				return errors.New("Can't set rights for child file")
+func (m *Miogo) setFolderRights(u *User, path, rights, entityType, entityName string) error {
+	selector := bson.M{"path": bson.M{"$regex": bson.RegEx{`^` + path, ""}}}
+	query := db.C("folders").Find(selector)
+
+	var folders []Folder
+	query.All(&folders)
+
+	for _, folder := range folders {
+		for _, file := range folder.Files {
+			if GetRightType(u, file.Rights) < AllowedToChangeRights {
+				return errors.New("Access denied")
+			}
+
+			fullPath := strings.TrimSuffix(folder.Path, "/") + "/" + file.Name
+			d, f := formatF(fullPath)
+
+			if err := m.setFileRights(fullPath, d, f, rights, entityType, entityName); err != nil {
+				return err
 			}
 		}
+	}
 
-		for _, childFolder := range folder.Folders {
-			err = m.SetResourceRightsP(childFolder.Path, rights, entityType, name)
-			if err != nil {
-				return errors.New("Can't set rights for child folder")
-			}
-		}
-
-		if entityType == "all" {
-			_, err = db.C("folders").UpdateAll(selector, bson.M{"$set": bson.M{"rights.all": rights}})
-		} else {
-			err = db.C("folders").Update(selector, bson.M{"$addToSet": bson.M{"rights." + entityType: bson.M{"name": name, "rights": rights}}})
-		}
-
-		if err != nil {
-			return errors.New("Can't set rights for folder")
-		}
-	} else if _, ok := m.FetchFile(resource); ok {
-		/*if GetRightType(u, f.Rights) < AllowedToChangeRights {
-			ctx.SetBodyString(`{ "error": "Access denied" }`)
-			return
-		}*/
-
-		dir, file := formatF(resource)
-
-		if entityType == "all" {
-			err = db.C("folders").Update(
-				bson.M{"path": dir, "files.name": file},
-				bson.M{"$set": bson.M{"files.0.rights.all": rights}})
-		} else {
-			err = db.C("folders").Update(
-				bson.M{"path": dir, "files.name": file},
-				bson.M{"$addToSet": bson.M{"files.0.rights." + entityType: bson.M{"name": name, "rights": rights}}})
-		}
-
-		if err != nil {
-			return errors.New("Can't set rights for file")
-		}
-
-		m.filesCache.Invalidate(resource)
+	if entityType == "all" {
+		db.C("folders").UpdateAll(selector, bson.M{"$set": bson.M{"rights.all": rights}})
+	} else {
+		db.C("folders").Update(selector, bson.M{"$addToSet": bson.M{"rights." + entityType: bson.M{"name": entityName, "rights": rights}}})
 	}
 
 	return nil
@@ -78,33 +61,41 @@ func (m *Miogo) SetResourceRights(ctx *fasthttp.RequestCtx, u *User) error {
 	resource := formatD(string(ctx.FormValue("resource")))
 
 	var (
-		name, entityType string
+		entityName, entityType string
 	)
 
 	if len(ctx.FormValue("user")) > 0 {
-		name = strings.TrimSpace(string(ctx.FormValue("user")))
+		entityName = strings.TrimSpace(string(ctx.FormValue("user")))
 		entityType = "users"
 	} else if len(ctx.FormValue("group")) > 0 {
-		name = strings.TrimSpace(string(ctx.FormValue("group")))
+		entityName = strings.TrimSpace(string(ctx.FormValue("group")))
 		entityType = "groups"
 	} else {
 		entityType = "all"
 	}
 
-	if _, ok := m.FetchFolder(resource); ok {
-		if err := m.SetResourceRightsP(resource, rights, entityType, name); err != nil {
+	if folder, ok := m.FetchFolder(resource); ok {
+		if GetRightType(u, folder.Rights) < AllowedToChangeRights {
+			return errors.New("Access denied")
+		}
+
+		if err := m.setFolderRights(u, resource, rights, entityType, entityName); err != nil {
 			return err
 		}
 
 		m.foldersCache.InvalidateStartWith(resource)
-	} else if _, ok := m.FetchFile(resource); ok {
-		if err := m.SetResourceRightsP(resource, rights, entityType, name); err == nil {
-			return errors.New("Cannot set file rights")
+	} else if file, ok := m.FetchFile(resource); ok {
+		if GetRightType(u, file.Rights) < AllowedToChangeRights {
+			return errors.New("Access denied")
 		}
 
-		dir, _ := formatF(resource)
-		m.foldersCache.Invalidate(dir)
-		m.filesCache.Invalidate(resource)
+		d, f := formatF(resource)
+
+		if err := m.setFileRights(resource, d, f, rights, entityType, entityName); err != nil {
+			return err
+		}
+
+		m.foldersCache.Invalidate(d)
 	} else {
 		return errors.New("Resource does not exist")
 	}

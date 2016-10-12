@@ -46,6 +46,12 @@ func UserBelongsToGroup(u *User, g string) bool {
 }
 
 func GetRightType(u *User, r *Right) RightType {
+	if u.IsAdmin != nil {
+		if *u.IsAdmin {
+			return AllowedToChangeRights
+		}
+	}
+
 	if r == nil {
 		// WARNING: this is the default policy when there is NO rights set
 		return AllowedToWrite
