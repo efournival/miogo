@@ -264,9 +264,25 @@ func TestRightsVerification(t *testing.T) {
 func TestRemoveFile(t *testing.T) {
 	testUpload(t, "README.md", "/", jsonkv("success", "true"))
 	testPOST(t, "Remove", "path=/README.md", jsonkv("success", "true"))
+	// TODO:  add a test with GetFolder
 }
 
 func TestRemoveFolder(t *testing.T) {
+	testPOST(t, "Remove", "path=/test", jsonkv("success", "true"))
+	// TODO: add a test with GetFolder
+}
+
+func TestCopyFile(t *testing.T) {
+	testUpload(t, "README.md", "/", jsonkv("success", "true"))
+	testPOST(t, "NewFolder", "path=/test", jsonkv("success", "true"))
+	testPOST(t, "Copy", "path=/README.md&destination=/test&destFilename=fichiercopie.md", jsonkv("success", "true"))
+}
+
+func TestCopyFolder(t *testing.T) {
+	testPOST(t, "Copy", "path=/README.md&destination=/test&destFilename=fichiercopie2.md", jsonkv("success", "true"))
+	testPOST(t, "Copy", "path=/README.md&destination=/test&destFilename=fichiercopie3.md", jsonkv("success", "true"))
+	testPOST(t, "NewFolder", "path=/test/sousdossier", jsonkv("success", "true"))
+	testPOST(t, "Copy", "path=/test&destination=/dossiercopie", jsonkv("success", "true"))
 	testPOST(t, "Remove", "path=/test", jsonkv("success", "true"))
 }
 

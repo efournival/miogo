@@ -59,6 +59,7 @@ func (m *Miogo) FetchFolder(path string) (*Folder, bool) {
 
 // TODO: check rights
 func (m *Miogo) RemoveFolder(path string) bool {
+	path = formatD(path)
 	var folder *Folder
 	var ok bool
 	if val, okcache := m.foldersCache.Get(path); okcache {
@@ -71,9 +72,9 @@ func (m *Miogo) RemoveFolder(path string) bool {
 		return false
 	}
 	for _, file := range folder.Files {
-		m.RemoveFile(folder.Path + "/" + file.Name)
-		m.filesCache.Invalidate(folder.Path + "/" + file.Name)
-		m.filesContentCache.Invalidate(folder.Path + "/" + file.Name)
+		m.RemoveFile(folder.Path + file.Name)
+		m.filesCache.Invalidate(folder.Path + file.Name)
+		m.filesContentCache.Invalidate(folder.Path + file.Name)
 		m.foldersCache.Invalidate(folder.Path)
 	}
 

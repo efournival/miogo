@@ -13,6 +13,30 @@ func (m *Miogo) GetFile(ctx *fasthttp.RequestCtx, u *User) error {
 	return m.FetchFileContent(path, ctx.Response.BodyWriter(), u)
 }
 
+func (m *Miogo) Copy(ctx *fasthttp.RequestCtx, u *User) error {
+	path := formatD(string(ctx.FormValue("path")))
+	dest := formatD(string(ctx.FormValue("destination")))
+	destFilename := formatD(string(ctx.FormValue("destFilename")))
+
+	path = formatD(path)
+	_, sourceFilename := formatF(path)
+	if destFilename == "" {
+		destFilename = sourceFilename
+	}
+
+	var err bool
+	if _, ok := m.FetchFolder(path); ok {
+		err = m.CopyFolder(path, dest)
+	} else if _, okf := m.FetchFile(path); okf {
+		err = m.CopyFile(path, dest, destFilename)
+	}
+	if err != true {
+		return errors.New("Error when copying file or folder")
+	}
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
+}
+
 func (m *Miogo) Remove(ctx *fasthttp.RequestCtx, u *User) error {
 	path := formatD(string(ctx.FormValue("path")))
 	var err bool
