@@ -276,6 +276,7 @@ func TestCopyFile(t *testing.T) {
 	testUpload(t, "README.md", "/", jsonkv("success", "true"))
 	testPOST(t, "NewFolder", "path=/test", jsonkv("success", "true"))
 	testPOST(t, "Copy", "path=/README.md&destination=/test&destFilename=fichiercopie.md", jsonkv("success", "true"))
+	testPOST(t, "Copy", "path=/README.md&destination=/test&destFilename=fichiercopie.md", jsonkv("success", "true"))
 }
 
 func TestCopyFolder(t *testing.T) {

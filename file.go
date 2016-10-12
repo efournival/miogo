@@ -91,11 +91,17 @@ func (m *Miogo) FetchFile(path string) (*File, bool) {
 	return nil, false
 }
 
-// TODO Rights, and case when path == dest && destFilename empty (duplicate file)
+// TODO Rights, and a better handle for duplicate files
 func (m *Miogo) CopyFile(path, dest, destFilename string) bool {
 	dest = formatD(dest)
 	sourceFile, _ := m.FetchFile(path)
 	gfId := sourceFile.FileID
+	if path == dest && destFilename == sourceFile.Name {
+		destFilename = destFilename + "(DUPLICATE)"
+	}
+	if _, ok := m.FetchFile(dest + "/" + destFilename); ok {
+		destFilename = destFilename + "(DUPLICATE)"
+	}
 	err := db.C("folders").Update(bson.M{"path": dest}, bson.M{"$push": bson.M{"files": bson.M{"name": destFilename, "file_id": gfId}}})
 	if err == nil {
 		db.C("fs.files").Update(bson.M{"_id": gfId}, bson.M{"$inc": bson.M{"links": 1}})
