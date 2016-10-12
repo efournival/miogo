@@ -1,6 +1,6 @@
 #!/bin/bash
 
-curl -c session.txt --silent --data "login=root%40localhost.tld&password=admin" http://localhost/Mioga2/login/DisplayMain?target=/Mioga2/Mioga/bin/admin/Workspace/DisplayMain
+curl -c session.txt --silent --data "login=root%40localhost.tld&password=admin" http://localhost/Mioga2/login/DisplayMain?target=/Mioga2/Mioga/bin/admin/Workspace/DisplayMain > /dev/null
 
 session=$(cat session.txt | grep session | cut -f7)
 

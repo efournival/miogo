@@ -246,19 +246,28 @@ func TestGroup(t *testing.T) {
 }
 
 func TestSetRights(t *testing.T) {
-	testPOST(t, "SetResourceRights", "resource=/&rights=r&all=", jsonkv("success", "true"))
+	testPOST(t, "SetResourceRights", "resource=/&rights=rw&all=", jsonkv("success", "true"))
 	testPOST(t, "SetResourceRights", "resource=/&rights=rw&group=miogo", jsonkv("success", "true"))
 	testPOST(t, "SetResourceRights", "resource=/test&rights=n&all=", jsonkv("success", "true"))
 }
 
 func TestGetFolder(t *testing.T) {
-	testPOST(t, "GetFolder", "path=/", `{"path":"/","folders":[{"path":"/test"}],"rights":{"all":"r","groups":[{"name":"miogo","rights":"rw"}]}}`)
+	testPOST(t, "GetFolder", "path=/", `{"path":"/","folders":[{"path":"/test"}],"rights":{"all":"rw","groups":[{"name":"miogo","rights":"rw"}]}}`)
 }
 
 func TestRightsVerification(t *testing.T) {
 	testPOST(t, "GetFile", "path=/test/README.md", jsonkv("error", "Access denied"))
 	testPOST(t, "GetFolder", "path=/test", jsonkv("error", "Access denied"))
 	testUpload(t, "main.go", "/test", jsonkv("error", "Access denied"))
+}
+
+func TestRemoveFile(t *testing.T) {
+	testUpload(t, "README.md", "/", jsonkv("success", "true"))
+	testPOST(t, "Remove", "path=/README.md", jsonkv("success", "true"))
+}
+
+func TestRemoveFolder(t *testing.T) {
+	testPOST(t, "Remove", "path=/test", jsonkv("success", "true"))
 }
 
 func TestLogout(t *testing.T) {

@@ -8,7 +8,7 @@ case "$(pidof miogo | wc -w)" in
         ;;
 esac
 
-curl -c session.txt --silent --data "email=test@miogo.tld&password=test" http://localhost:8080/Login
+curl -c session.txt --silent --data "email=test@miogo.tld&password=test" http://localhost:8080/Login > /dev/null
 
 session=$(cat session.txt | grep session | cut -f7)
 

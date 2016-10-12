@@ -55,15 +55,17 @@ func (m *Miogo) CreateGFSFile(name string, file multipart.File) (bson.ObjectId, 
 		return bson.NewObjectId(), err
 	}
 
-	defer gf.Close()
-
 	_, err = io.Copy(gf, file)
+	gf.Close()
+
+	gfId := gf.Id().(bson.ObjectId)
+	db.C("fs.files").Update(bson.M{"_id": gfId}, bson.M{"$set": bson.M{"links": 1}})
 
 	if err != nil {
 		log.Printf("Cannot copy to GridFS: %s\n", err)
 	}
 
-	return gf.Id().(bson.ObjectId), err
+	return gfId, err
 }
 
 func (m *Miogo) FetchFile(path string) (*File, bool) {
@@ -139,9 +141,16 @@ func (m *Miogo) RemoveFile(path string) bool {
 	path = formatD(path)
 
 	if file, ok := m.FetchFile(path); ok {
-		if err := db.GridFS("fs").RemoveId(file.FileID); err != nil {
-			log.Printf("RemoveId (GridFS) failed for FileID '%s' (%s)\n", file.FileID.String(), path)
-			return false
+
+		var linksNumber map[string]int
+		db.C("fs.files").Update(bson.M{"_id": file.FileID}, bson.M{"$inc": bson.M{"links": -1}})
+		db.C("fs.files").Find(bson.M{"_id": file.FileID}).Select(bson.M{"links": 1}).One(&linksNumber)
+
+		if linksNumber["links"] == 0 {
+			if err := db.GridFS("fs").RemoveId(file.FileID); err != nil {
+				log.Printf("RemoveId (GridFS) failed for FileID '%s' (%s)\n", file.FileID.String(), path)
+				return false
+			}
 		}
 
 		d, f := formatF(path)

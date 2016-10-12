@@ -56,3 +56,37 @@ func (m *Miogo) FetchFolder(path string) (*Folder, bool) {
 
 	return nil, false
 }
+
+// TODO: check rights
+func (m *Miogo) RemoveFolder(path string) bool {
+	var folder *Folder
+	var ok bool
+	if val, okcache := m.foldersCache.Get(path); okcache {
+		folder = val.(*Folder)
+		ok = true
+	} else {
+		folder, ok = m.FetchFolder(path)
+	}
+	if !ok {
+		return false
+	}
+	for _, file := range folder.Files {
+		m.RemoveFile(folder.Path + "/" + file.Name)
+		m.filesCache.Invalidate(folder.Path + "/" + file.Name)
+		m.filesContentCache.Invalidate(folder.Path + "/" + file.Name)
+		m.foldersCache.Invalidate(folder.Path)
+	}
+
+	for _, subFolder := range folder.Folders {
+		if !m.RemoveFolder(subFolder.Path) {
+			return false
+		}
+		m.foldersCache.Invalidate(subFolder.Path)
+	}
+
+	if err := db.C("folders").Remove(bson.M{"path": path}); err != nil {
+		return false
+	}
+
+	return true
+}

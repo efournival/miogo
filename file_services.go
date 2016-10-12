@@ -13,6 +13,21 @@ func (m *Miogo) GetFile(ctx *fasthttp.RequestCtx, u *User) error {
 	return m.FetchFileContent(path, ctx.Response.BodyWriter(), u)
 }
 
+func (m *Miogo) Remove(ctx *fasthttp.RequestCtx, u *User) error {
+	path := formatD(string(ctx.FormValue("path")))
+	var err bool
+	if _, ok := m.FetchFolder(path); ok {
+		err = m.RemoveFolder(path)
+	} else if _, okf := m.FetchFile(path); okf {
+		err = m.RemoveFile(path)
+	}
+	if err != true {
+		return errors.New("Error when removing file or folder")
+	}
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
+}
+
 func (m *Miogo) GetFolder(ctx *fasthttp.RequestCtx, u *User) error {
 	path := formatD(string(ctx.FormValue("path")))
 

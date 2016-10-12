@@ -95,6 +95,12 @@ func NewMiogo() *Miogo {
 	})
 
 	miogo.RegisterService(&Service{
+		Handler:         miogo.Remove,
+		Options:         NoJSON,
+		MandatoryFields: []string{"path"},
+	})
+
+	miogo.RegisterService(&Service{
 		Handler:         miogo.GetFolder,
 		MandatoryFields: []string{"path"},
 	})
