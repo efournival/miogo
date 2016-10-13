@@ -55,14 +55,16 @@ func (m *Miogo) RemoveFolder(path string, u *User) error {
 		return errors.New("Access denied")
 	}
 	for _, file := range folder.Files {
-		m.filesCache.Invalidate(folder.Path + "/" + file.Name)
-		m.filesContentCache.Invalidate(folder.Path + "/" + file.Name)
-		m.foldersCache.Invalidate(folder.Path)
-
-		fileErr := m.RemoveFile(folder.Path+"/"+file.Name, u)
+		if GetRightType(u, file.Rights) < AllowedToWrite {
+			return errors.New("Access denied")
+		}
+		fileErr := m.RemoveFile(folder.Path + "/" + file.Name)
 		if fileErr != nil {
 			return fileErr
 		}
+		m.filesCache.Invalidate(folder.Path + "/" + file.Name)
+		m.filesContentCache.Invalidate(folder.Path + "/" + file.Name)
+		m.foldersCache.Invalidate(folder.Path)
 	}
 
 	for _, subFolder := range folder.Folders {
@@ -119,6 +121,9 @@ func (m *Miogo) CopyFolder(path, dest, destFoldername string, u *User) error {
 	}
 
 	for _, file := range sourceFolder.Files {
+		if GetRightType(u, file.Rights) < AllowedToRead {
+			return errors.New("Access denied")
+		}
 		m.CopyFile(sourceFolder.Path+"/"+file.Name, destinationFolder, file.Name, u)
 	}
 

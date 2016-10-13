@@ -19,28 +19,25 @@ func init() {
 }
 
 func TestFilesBulkPush(t *testing.T) {
-	// Disabled as we can't remove a file without a user
-	/*
-		id1, _ := miogo.CreateGFSFile(FILE1, file)
-		id2, _ := miogo.CreateGFSFile(FILE2, file)
+	id1, _ := miogo.CreateGFSFile(FILE1, file)
+	id2, _ := miogo.CreateGFSFile(FILE2, file)
 
-		fb := NewFilesBulk(PATH)
-		fb.AddFile(id1, FILE1)
-		fb.AddFile(id2, FILE2)
+	fb := NewFilesBulk(PATH)
+	fb.AddFile(id1, FILE1)
+	fb.AddFile(id2, FILE2)
 
-		miogo.PushFilesBulk(fb)
+	miogo.PushFilesBulk(fb)
 
-		if _, ok := miogo.FetchFile(PATH + FILE1); !ok {
-			t.Fatal("Files bulk push failed (cannot fetch file 1)")
-		}
+	if _, ok := miogo.FetchFile(PATH + FILE1); !ok {
+		t.Fatal("Files bulk push failed (cannot fetch file 1)")
+	}
 
-		if _, ok := miogo.FetchFile(PATH + FILE2); !ok {
-			t.Fatal("Files bulk push failed (cannot fetch file 2)")
-		}
+	if _, ok := miogo.FetchFile(PATH + FILE2); !ok {
+		t.Fatal("Files bulk push failed (cannot fetch file 2)")
+	}
 
-		miogo.RemoveFile(PATH + FILE1)
-		miogo.RemoveFile(PATH + FILE2)
-	*/
+	miogo.RemoveFile(PATH + FILE1)
+	miogo.RemoveFile(PATH + FILE2)
 }
 
 func TestFilesBulkRevert(t *testing.T) {

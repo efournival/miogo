@@ -71,7 +71,12 @@ func (m *Miogo) Remove(ctx *fasthttp.RequestCtx, u *User) error {
 		if GetRightType(u, file.Rights) < AllowedToWrite {
 			return errors.New("Access denied")
 		}
-		err = m.RemoveFile(path, u)
+		parentFolderPath, _ := formatF(path)
+		parentFolder, _ := m.FetchFolder(parentFolderPath)
+		if GetRightType(u, parentFolder.Rights) < AllowedToWrite {
+			return errors.New("Access denied")
+		}
+		err = m.RemoveFile(path)
 	}
 	if err != nil {
 		return err

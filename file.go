@@ -106,11 +106,8 @@ func (m *Miogo) FetchFileContent(path string, destination io.Writer, user *User)
 	return errors.New("File not found")
 }
 
-func (m *Miogo) RemoveFile(path string, u *User) error {
+func (m *Miogo) RemoveFile(path string) error {
 	if file, ok := m.FetchFile(path); ok {
-		if GetRightType(u, file.Rights) < AllowedToWrite {
-			return errors.New("Access denied")
-		}
 
 		var linksNumber map[string]int
 		db.C("fs.files").Update(bson.M{"_id": file.FileID}, bson.M{"$inc": bson.M{"links": -1}})
