@@ -1,6 +1,10 @@
 package main
 
-import "gopkg.in/mgo.v2/bson"
+import (
+	"errors"
+
+	"gopkg.in/mgo.v2/bson"
+)
 
 type Folder struct {
 	Path    string   `bson:"path" json:"path"`
@@ -32,9 +36,7 @@ func (m *Miogo) FetchFolder(path string) (*Folder, bool) {
 	return nil, false
 }
 
-// TODO: check rights
-func (m *Miogo) RemoveFolder(path string) bool {
-	path = formatD(path)
+func (m *Miogo) RemoveFolder(path string, u *User) error {
 	var folder *Folder
 	var ok bool
 	if val, okcache := m.foldersCache.Get(path); okcache {
@@ -44,25 +46,74 @@ func (m *Miogo) RemoveFolder(path string) bool {
 		folder, ok = m.FetchFolder(path)
 	}
 	if !ok {
-		return false
+		return errors.New("Folder to remove doesn't exist")
+	}
+	if GetRightType(u, folder.Rights) < AllowedToWrite {
+		return errors.New("Access denied")
 	}
 	for _, file := range folder.Files {
-		m.RemoveFile(folder.Path + file.Name)
-		m.filesCache.Invalidate(folder.Path + file.Name)
-		m.filesContentCache.Invalidate(folder.Path + file.Name)
+		m.filesCache.Invalidate(folder.Path + "/" + file.Name)
+		m.filesContentCache.Invalidate(folder.Path + "/" + file.Name)
 		m.foldersCache.Invalidate(folder.Path)
+		fileErr := m.RemoveFile(folder.Path+"/"+file.Name, u)
+		if fileErr != nil {
+			return fileErr
+		}
 	}
 
 	for _, subFolder := range folder.Folders {
-		if !m.RemoveFolder(subFolder.Path) {
-			return false
+		err := m.RemoveFolder(subFolder.Path, u)
+		if err != nil {
+			return errors.New("Can't remove folder")
 		}
 		m.foldersCache.Invalidate(subFolder.Path)
 	}
 
 	if err := db.C("folders").Remove(bson.M{"path": path}); err != nil {
-		return false
+		return errors.New("Can't remove folder")
 	}
 
-	return true
+	return nil
+}
+
+func (m *Miogo) CopyFolder(path, dest string, u *User) error {
+	dest = formatD(dest)
+	var parentFolderPath = parentD(dest)
+	if parentFolder, ok := m.FetchFolder(parentFolderPath); ok {
+		if GetRightType(u, parentFolder.Rights) < AllowedToWrite {
+			return errors.New("Access denied")
+		}
+	} else {
+		return errors.New("Parent destination folder does not exist")
+	}
+	var ok bool
+	var sourceFolder *Folder
+	if sourceFolder, ok = m.FetchFolder(path); ok {
+		if GetRightType(u, sourceFolder.Rights) < AllowedToRead {
+			return errors.New("Access denied")
+		}
+	} else {
+		return errors.New("Source folder does not exist")
+	}
+
+	if _, ok := m.FetchFolder(parentD(dest)); ok {
+		if _, exists := m.FetchFolder(dest); !exists {
+			m.foldersCache.Invalidate(parentD(dest))
+			db.C("folders").Insert(bson.M{"path": dest})
+		}
+	} else {
+		return errors.New("Error when copying folder")
+	}
+	for _, file := range sourceFolder.Files {
+		m.CopyFile(sourceFolder.Path+"/"+file.Name, dest, file.Name, u)
+	}
+	for _, subFolder := range sourceFolder.Folders {
+		db.C("folders").Insert(bson.M{"path": dest + subFolder.Path})
+		err := m.CopyFolder(subFolder.Path, dest, u)
+		if err != nil {
+			return err
+		}
+	}
+	m.foldersCache.Invalidate(dest)
+	return nil
 }

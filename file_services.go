@@ -24,13 +24,19 @@ func (m *Miogo) Copy(ctx *fasthttp.RequestCtx, u *User) error {
 		destFilename = sourceFilename
 	}
 
-	var err bool
-	if _, ok := m.FetchFolder(path); ok {
-		err = m.CopyFolder(path, dest)
-	} else if _, okf := m.FetchFile(path); okf {
-		err = m.CopyFile(path, dest, destFilename)
+	var err error
+	if folder, ok := m.FetchFolder(path); ok {
+		if GetRightType(u, folder.Rights) < AllowedToRead {
+			return errors.New("Access denied")
+		}
+		err = m.CopyFolder(path, dest, u)
+	} else if file, okf := m.FetchFile(path); okf {
+		if GetRightType(u, file.Rights) < AllowedToRead {
+			return errors.New("Access denied")
+		}
+		err = m.CopyFile(path, dest, destFilename, u)
 	}
-	if err != true {
+	if err != nil {
 		return errors.New("Error when copying file or folder")
 	}
 	ctx.SetBodyString(jsonkv("success", "true"))
@@ -39,14 +45,20 @@ func (m *Miogo) Copy(ctx *fasthttp.RequestCtx, u *User) error {
 
 func (m *Miogo) Remove(ctx *fasthttp.RequestCtx, u *User) error {
 	path := formatD(string(ctx.FormValue("path")))
-	var err bool
-	if _, ok := m.FetchFolder(path); ok {
-		err = m.RemoveFolder(path)
-	} else if _, okf := m.FetchFile(path); okf {
-		err = m.RemoveFile(path)
+	var err error
+	if folder, ok := m.FetchFolder(path); ok {
+		if GetRightType(u, folder.Rights) < AllowedToWrite {
+			return errors.New("Access denied")
+		}
+		err = m.RemoveFolder(path, u)
+	} else if file, okf := m.FetchFile(path); okf {
+		if GetRightType(u, file.Rights) < AllowedToWrite {
+			return errors.New("Access denied")
+		}
+		err = m.RemoveFile(path, u)
 	}
-	if err != true {
-		return errors.New("Error when removing file or folder")
+	if err != nil {
+		return err
 	}
 	ctx.SetBodyString(jsonkv("success", "true"))
 	return nil
