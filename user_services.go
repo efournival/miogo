@@ -31,9 +31,10 @@ import (
  */
 
 type User struct {
-	Email    string   `bson:"email" json:"email"`
-	Password string   `bson:"password" json:"password"`
-	Groups   []string `bson:"groups" json:"groups,omitempty"`
+	Id       bson.ObjectId `bson:"_id,omitempty" json:"id"`
+	Email    string        `bson:"email" json:"email"`
+	Password string        `bson:"password" json:"password"`
+	Groups   []string      `bson:"groups" json:"groups,omitempty"`
 	Session  struct {
 		Hash       string `bson:"hash"`
 		Expiration int64  `bson:"expire"`

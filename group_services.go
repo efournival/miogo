@@ -77,7 +77,13 @@ func (m *Miogo) AddUserToGroup(ctx *fasthttp.RequestCtx, u *User) error {
 	user := strings.TrimSpace(string(ctx.FormValue("user")))
 	group := strings.TrimSpace(string(ctx.FormValue("group")))
 
-	//TODO: check if group and user exist
+	if _, exists := m.FetchUser(user); !exists {
+		return errors.New("User does not exist")
+	}
+
+	if _, exists := m.FetchGroup(group); !exists {
+		return errors.New("Group does not exist")
+	}
 
 	db.C("users").Update(bson.M{"email": user}, bson.M{"$addToSet": bson.M{"groups": group}})
 
@@ -91,7 +97,13 @@ func (m *Miogo) RemoveUserFromGroup(ctx *fasthttp.RequestCtx, u *User) error {
 	user := strings.TrimSpace(string(ctx.FormValue("user")))
 	group := strings.TrimSpace(string(ctx.FormValue("group")))
 
-	//TODO: check if group and user exist
+	if _, exists := m.FetchUser(user); !exists {
+		return errors.New("User does not exist")
+	}
+
+	if _, exists := m.FetchGroup(group); !exists {
+		return errors.New("Group does not exist")
+	}
 
 	db.C("users").Update(bson.M{"email": user}, bson.M{"$pull": bson.M{"groups": group}})
 
@@ -105,7 +117,13 @@ func (m *Miogo) SetGroupAdmin(ctx *fasthttp.RequestCtx, u *User) error {
 	user := strings.TrimSpace(string(ctx.FormValue("user")))
 	group := strings.TrimSpace(string(ctx.FormValue("group")))
 
-	//TODO: check if group and user exist
+	if _, exists := m.FetchUser(user); !exists {
+		return errors.New("User does not exist")
+	}
+
+	if _, exists := m.FetchGroup(group); !exists {
+		return errors.New("Group does not exist")
+	}
 
 	db.C("groups").Update(bson.M{"_id": group}, bson.M{"$addToSet": bson.M{"admins": user}})
 
