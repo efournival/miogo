@@ -13,6 +13,19 @@ func (m *Miogo) GetFile(ctx *fasthttp.RequestCtx, u *User) error {
 	return m.FetchFileContent(path, ctx.Response.BodyWriter(), u)
 }
 
+func (m *Miogo) Move(ctx *fasthttp.RequestCtx, u *User) error {
+	err := m.Copy(ctx, u)
+	if err != nil {
+		return err
+	}
+	err = m.Remove(ctx, u)
+	if err != nil {
+		return err
+	}
+	ctx.SetBodyString(jsonkv("success", "true"))
+	return nil
+}
+
 func (m *Miogo) Copy(ctx *fasthttp.RequestCtx, u *User) error {
 	path := formatD(string(ctx.FormValue("path")))
 	dest := formatD(string(ctx.FormValue("destination")))
@@ -29,7 +42,10 @@ func (m *Miogo) Copy(ctx *fasthttp.RequestCtx, u *User) error {
 		if GetRightType(u, folder.Rights) < AllowedToRead {
 			return errors.New("Access denied")
 		}
-		err = m.CopyFolder(path, dest, u)
+		if destFilename == "/" {
+			_, destFilename = formatF(path)
+		}
+		err = m.CopyFolder(path, dest, destFilename, u)
 	} else if file, okf := m.FetchFile(path); okf {
 		if GetRightType(u, file.Rights) < AllowedToRead {
 			return errors.New("Access denied")
@@ -37,7 +53,7 @@ func (m *Miogo) Copy(ctx *fasthttp.RequestCtx, u *User) error {
 		err = m.CopyFile(path, dest, destFilename, u)
 	}
 	if err != nil {
-		return errors.New("Error when copying file or folder")
+		return err
 	}
 	ctx.SetBodyString(jsonkv("success", "true"))
 	return nil

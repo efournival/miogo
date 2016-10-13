@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"log"
 
 	"gopkg.in/mgo.v2/bson"
 )
@@ -45,6 +46,7 @@ func (m *Miogo) RemoveFolder(path string, u *User) error {
 	} else {
 		folder, ok = m.FetchFolder(path)
 	}
+	m.foldersCache.Invalidate(path)
 	if !ok {
 		return errors.New("Folder to remove doesn't exist")
 	}
@@ -55,6 +57,7 @@ func (m *Miogo) RemoveFolder(path string, u *User) error {
 		m.filesCache.Invalidate(folder.Path + "/" + file.Name)
 		m.filesContentCache.Invalidate(folder.Path + "/" + file.Name)
 		m.foldersCache.Invalidate(folder.Path)
+
 		fileErr := m.RemoveFile(folder.Path+"/"+file.Name, u)
 		if fileErr != nil {
 			return fileErr
@@ -62,32 +65,40 @@ func (m *Miogo) RemoveFolder(path string, u *User) error {
 	}
 
 	for _, subFolder := range folder.Folders {
+
 		err := m.RemoveFolder(subFolder.Path, u)
 		if err != nil {
 			return errors.New("Can't remove folder")
 		}
-		m.foldersCache.Invalidate(subFolder.Path)
 	}
 
 	if err := db.C("folders").Remove(bson.M{"path": path}); err != nil {
 		return errors.New("Can't remove folder")
 	}
-
 	return nil
 }
 
-func (m *Miogo) CopyFolder(path, dest string, u *User) error {
+func (m *Miogo) CopyFolder(path, dest, destFoldername string, u *User) error {
 	dest = formatD(dest)
+
+	var destinationFolder = dest + destFoldername
+	if dest != "/" {
+		destinationFolder = dest + "/" + destFoldername
+	}
+	log.Println(destinationFolder)
 	var parentFolderPath = parentD(dest)
+
 	if parentFolder, ok := m.FetchFolder(parentFolderPath); ok {
 		if GetRightType(u, parentFolder.Rights) < AllowedToWrite {
 			return errors.New("Access denied")
 		}
 	} else {
-		return errors.New("Parent destination folder does not exist")
+		return errors.New("parent folder does not exist")
 	}
+
 	var ok bool
 	var sourceFolder *Folder
+
 	if sourceFolder, ok = m.FetchFolder(path); ok {
 		if GetRightType(u, sourceFolder.Rights) < AllowedToRead {
 			return errors.New("Access denied")
@@ -96,24 +107,30 @@ func (m *Miogo) CopyFolder(path, dest string, u *User) error {
 		return errors.New("Source folder does not exist")
 	}
 
-	if _, ok := m.FetchFolder(parentD(dest)); ok {
-		if _, exists := m.FetchFolder(dest); !exists {
-			m.foldersCache.Invalidate(parentD(dest))
-			db.C("folders").Insert(bson.M{"path": dest})
+	if _, ok := m.FetchFolder(dest); ok {
+		if _, exists := m.FetchFolder(destinationFolder); !exists {
+			m.foldersCache.Invalidate(dest)
+			// if it does not, create our destination folder
+			db.C("folders").Insert(bson.M{"path": destinationFolder})
 		}
 	} else {
 		return errors.New("Error when copying folder")
 	}
+
 	for _, file := range sourceFolder.Files {
-		m.CopyFile(sourceFolder.Path+"/"+file.Name, dest, file.Name, u)
+		m.CopyFile(sourceFolder.Path+"/"+file.Name, destinationFolder, file.Name, u)
 	}
+
 	for _, subFolder := range sourceFolder.Folders {
-		db.C("folders").Insert(bson.M{"path": dest + subFolder.Path})
-		err := m.CopyFolder(subFolder.Path, dest, u)
+		m.foldersCache.Invalidate(dest)
+		m.foldersCache.Invalidate(subFolder.Path)
+
+		_, folderName := formatF(subFolder.Path)
+		db.C("folders").Insert(bson.M{"path": destinationFolder + "/" + folderName})
+		err := m.CopyFolder(subFolder.Path, destinationFolder, folderName, u)
 		if err != nil {
 			return err
 		}
 	}
-	m.foldersCache.Invalidate(dest)
 	return nil
 }

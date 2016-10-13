@@ -289,8 +289,21 @@ func TestCopyFolder(t *testing.T) {
 	testPOST(t, "Copy", "path=/README.md&destination=/test&destFilename=fichiercopie2.md", jsonkv("success", "true"))
 	testPOST(t, "Copy", "path=/README.md&destination=/test&destFilename=fichiercopie3.md", jsonkv("success", "true"))
 	testPOST(t, "NewFolder", "path=/test/sousdossier", jsonkv("success", "true"))
-	testPOST(t, "Copy", "path=/test&destination=/dossiercopie", jsonkv("success", "true"))
+	testPOST(t, "Copy", "path=/README.md&destination=/test/sousdossier&destFilename=fichiercopie3.md", jsonkv("success", "true"))
+	testPOST(t, "Copy", "path=/test&destination=/&destFilename=dossiercopie", jsonkv("success", "true"))
 	testPOST(t, "Remove", "path=/test", jsonkv("success", "true"))
+	testPOST(t, "NewFolder", "path=/nouveaudossier", jsonkv("success", "true"))
+	testPOST(t, "Copy", "path=/dossiercopie&destination=/nouveaudossier&destFilename=", jsonkv("success", "true"))
+	testPOST(t, "Remove", "path=/nouveaudossier", jsonkv("success", "true"))
+}
+
+func TestMoveFile(t *testing.T) {
+	testPOST(t, "Move", "path=/README.md&destination=/&destFilename=READMEdeRACINE.md", jsonkv("success", "true"))
+	testPOST(t, "Move", "path=/READMEdeRACINE.md&destination=/&destFilename=fourni.md", jsonkv("success", "true"))
+}
+
+func TestMoveFolder(t *testing.T) {
+	testPOST(t, "Move", "path=/dossiercopie&destination=/&destFilename=dossierbouge", jsonkv("success", "true"))
 }
 
 func TestLogout(t *testing.T) {
