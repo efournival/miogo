@@ -39,45 +39,44 @@ func (m *Miogo) FetchFolder(path string) (*Folder, bool) {
 func (m *Miogo) RemoveFolder(path string, u *User) error {
 	var folder *Folder
 	var ok bool
-	if val, okcache := m.foldersCache.Get(path); okcache {
-		folder = val.(*Folder)
-		ok = true
-	} else {
-		folder, ok = m.FetchFolder(path)
-	}
 
-	m.foldersCache.Invalidate(path)
-
-	if !ok {
+	if folder, ok = m.FetchFolder(path); !ok {
 		return errors.New("Folder to remove doesn't exist")
 	}
+
 	if GetRightType(u, folder.Rights) < AllowedToWrite {
 		return errors.New("Access denied")
 	}
+
 	for _, file := range folder.Files {
 		if GetRightType(u, file.Rights) < AllowedToWrite {
 			return errors.New("Access denied")
 		}
-		fileErr := m.RemoveFile(folder.Path + "/" + file.Name)
-		if fileErr != nil {
-			return fileErr
+
+		if err := m.RemoveFile(folder.Path + "/" + file.Name); err != nil {
+			return err
 		}
+
 		m.filesCache.Invalidate(folder.Path + "/" + file.Name)
 		m.filesContentCache.Invalidate(folder.Path + "/" + file.Name)
 		m.foldersCache.Invalidate(folder.Path)
 	}
 
 	for _, subFolder := range folder.Folders {
-		m.foldersCache.Invalidate(folder.Path)
 		err := m.RemoveFolder(subFolder.Path, u)
+
 		if err != nil {
-			return errors.New("Can't remove folder")
+			return errors.New("Cannot remove folder")
 		}
+
+		m.foldersCache.Invalidate(folder.Path)
 	}
 
 	if err := db.C("folders").Remove(bson.M{"path": path}); err != nil {
-		return errors.New("Can't remove folder")
+		return errors.New("Cannot remove folder")
 	}
+
+	m.foldersCache.Invalidate(path)
 
 	return nil
 }
@@ -85,25 +84,17 @@ func (m *Miogo) RemoveFolder(path string, u *User) error {
 func (m *Miogo) CopyFolder(path, dest, destFoldername string, u *User) error {
 	dest = formatD(dest)
 
-	var destinationFolder = dest + destFoldername
+	var destinationFolder string
+
 	if dest != "/" {
 		destinationFolder = dest + "/" + destFoldername
-	}
-
-	var parentFolderPath = parentD(dest)
-
-	if parentFolder, ok := m.FetchFolder(parentFolderPath); ok {
-		if GetRightType(u, parentFolder.Rights) < AllowedToWrite {
-			return errors.New("Access denied")
-		}
 	} else {
-		return errors.New("parent folder does not exist")
+		destinationFolder = dest + destFoldername
 	}
 
-	var ok bool
-	var sourceFolder *Folder
+	var sourceFolder Folder
 
-	if sourceFolder, ok = m.FetchFolder(path); ok {
+	if sourceFolder, ok := m.FetchFolder(path); ok {
 		if GetRightType(u, sourceFolder.Rights) < AllowedToRead {
 			return errors.New("Access denied")
 		}
@@ -113,11 +104,10 @@ func (m *Miogo) CopyFolder(path, dest, destFoldername string, u *User) error {
 
 	if _, ok := m.FetchFolder(dest); ok {
 		if _, exists := m.FetchFolder(destinationFolder); !exists {
-			m.foldersCache.Invalidate(dest)
 			db.C("folders").Insert(bson.M{"path": destinationFolder})
 		}
 	} else {
-		return errors.New("Error when copying folder")
+		return errors.New("Destination folder does not exist")
 	}
 
 	for _, file := range sourceFolder.Files {
@@ -127,15 +117,18 @@ func (m *Miogo) CopyFolder(path, dest, destFoldername string, u *User) error {
 		m.CopyFile(sourceFolder.Path+"/"+file.Name, destinationFolder, file.Name, u)
 	}
 
-	m.foldersCache.Invalidate(dest)
 	for _, subFolder := range sourceFolder.Folders {
-		m.foldersCache.Invalidate(subFolder.Path)
 		_, folderName := formatF(subFolder.Path)
 		db.C("folders").Insert(bson.M{"path": destinationFolder + "/" + folderName})
-		err := m.CopyFolder(subFolder.Path, destinationFolder, folderName, u)
-		if err != nil {
+
+		if err := m.CopyFolder(subFolder.Path, destinationFolder, folderName, u); err != nil {
 			return err
 		}
+
+		m.foldersCache.Invalidate(subFolder.Path)
 	}
+
+	m.foldersCache.Invalidate(dest)
+
 	return nil
 }
