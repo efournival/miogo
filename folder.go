@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"log"
 
 	"gopkg.in/mgo.v2/bson"
 )
@@ -46,7 +45,9 @@ func (m *Miogo) RemoveFolder(path string, u *User) error {
 	} else {
 		folder, ok = m.FetchFolder(path)
 	}
+
 	m.foldersCache.Invalidate(path)
+
 	if !ok {
 		return errors.New("Folder to remove doesn't exist")
 	}
@@ -65,7 +66,7 @@ func (m *Miogo) RemoveFolder(path string, u *User) error {
 	}
 
 	for _, subFolder := range folder.Folders {
-
+		m.foldersCache.Invalidate(folder.Path)
 		err := m.RemoveFolder(subFolder.Path, u)
 		if err != nil {
 			return errors.New("Can't remove folder")
@@ -75,6 +76,7 @@ func (m *Miogo) RemoveFolder(path string, u *User) error {
 	if err := db.C("folders").Remove(bson.M{"path": path}); err != nil {
 		return errors.New("Can't remove folder")
 	}
+
 	return nil
 }
 
@@ -85,7 +87,7 @@ func (m *Miogo) CopyFolder(path, dest, destFoldername string, u *User) error {
 	if dest != "/" {
 		destinationFolder = dest + "/" + destFoldername
 	}
-	log.Println(destinationFolder)
+
 	var parentFolderPath = parentD(dest)
 
 	if parentFolder, ok := m.FetchFolder(parentFolderPath); ok {
@@ -110,7 +112,6 @@ func (m *Miogo) CopyFolder(path, dest, destFoldername string, u *User) error {
 	if _, ok := m.FetchFolder(dest); ok {
 		if _, exists := m.FetchFolder(destinationFolder); !exists {
 			m.foldersCache.Invalidate(dest)
-			// if it does not, create our destination folder
 			db.C("folders").Insert(bson.M{"path": destinationFolder})
 		}
 	} else {
@@ -121,10 +122,9 @@ func (m *Miogo) CopyFolder(path, dest, destFoldername string, u *User) error {
 		m.CopyFile(sourceFolder.Path+"/"+file.Name, destinationFolder, file.Name, u)
 	}
 
+	m.foldersCache.Invalidate(dest)
 	for _, subFolder := range sourceFolder.Folders {
-		m.foldersCache.Invalidate(dest)
 		m.foldersCache.Invalidate(subFolder.Path)
-
 		_, folderName := formatF(subFolder.Path)
 		db.C("folders").Insert(bson.M{"path": destinationFolder + "/" + folderName})
 		err := m.CopyFolder(subFolder.Path, destinationFolder, folderName, u)
