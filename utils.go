@@ -17,9 +17,12 @@ func parentD(res string) string {
 }
 
 func formatF(res string) (dir string, file string) {
+	res = formatD(res)
 	pos := strings.LastIndex(res, "/")
-	file = res[pos+1:]
+
+	file = strings.TrimSpace(res[pos+1:])
 	dir = formatD(res[:pos])
+
 	return
 }
 
