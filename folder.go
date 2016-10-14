@@ -92,9 +92,10 @@ func (m *Miogo) CopyFolder(path, dest, destFoldername string, u *User) error {
 		destinationFolder = dest + destFoldername
 	}
 
-	var sourceFolder Folder
+	var sourceFolder *Folder
+	var ok bool
 
-	if sourceFolder, ok := m.FetchFolder(path); ok {
+	if sourceFolder, ok = m.FetchFolder(path); ok {
 		if GetRightType(u, sourceFolder.Rights) < AllowedToRead {
 			return errors.New("Access denied")
 		}
